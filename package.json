@@ -1,0 +1,32 @@
+{
+  "name": "dsk-guard",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "dev:web": "turbo dev --filter=web",
+    "dev:server": "turbo dev --filter=server",
+    "build:web": "turbo build --filter=web",
+    "build:server": "turbo build --filter=server",
+    "lint:web": "turbo lint --filter=web",
+    "lint:server": "turbo lint --filter=server",
+    "fw:build": "pio run -d apps/firmware",
+    "fw:upload": "pio run -d apps/firmware -t upload",
+    "fw:monitor": "pio device monitor -d apps/firmware",
+    "fw:flash": "pio run -d apps/firmware -t upload -t monitor",
+    "clean": "turbo clean && rm -rf node_modules apps/*/node_modules apps/*/.next apps/*/dist"
+  },
+  "devDependencies": {
+    "turbo": "^2",
+    "prettier": "^3"
+  },
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=9"
+  }
+}

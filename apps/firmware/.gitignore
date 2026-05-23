@@ -1,0 +1,15 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+.clang_complete
+.gcc-flags.json
+
+# Secrets — never commit real credentials
+include/secrets.h
+src/secrets.h
+
+# OS junk
+.DS_Store
+Thumbs.db
