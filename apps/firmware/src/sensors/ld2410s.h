@@ -21,7 +21,7 @@
 #include "radar_types.h"
 
 struct Ld2410sConfig {
-    uint16_t maxRangeCm   = 150;   // beyond this = ABSENT (desk range)
+    uint16_t maxRangeCm   = 70;   // beyond this = ABSENT (desk range)
     uint8_t  smoothWindow = 5;     // moving average window for distance
 };
 
