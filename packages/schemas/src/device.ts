@@ -22,6 +22,11 @@ export const DeviceSchema = z.object({
   last_seen_at: z.string().datetime().nullable(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
+  // Last-pushed config thresholds (null = never pushed, use device defaults)
+  cfg_sit_minutes: z.number().int().nullable(),
+  cfg_co2_max_ppm: z.number().int().nullable(),
+  cfg_lux_min: z.number().nullable(),
+  cfg_lux_max: z.number().nullable(),
 });
 
 export type Device = z.infer<typeof DeviceSchema>;

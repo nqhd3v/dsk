@@ -15,6 +15,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <TFT_eSPI.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>
 #include <time.h>
 
 #include "sensors/bh1750.h"
@@ -75,6 +76,50 @@ Screen         *currentScreen = nullptr;
 ScreenFsm       fsm;
 ScreenMode       lastMode = ScreenMode::ACTIVE;
 
+// NVS config persistence
+Preferences      prefs;
+
+// NVS namespace / keys
+static constexpr const char *NVS_NS        = "dg_cfg";
+static constexpr const char *NVS_SIT_MIN   = "sit_min";
+static constexpr const char *NVS_RST_S     = "rst_s";
+static constexpr const char *NVS_SUM_S     = "sum_s";
+static constexpr const char *NVS_SLP_S     = "slp_s";
+
+/** Load thresholds from NVS; falls back to ScreenFsmConfig defaults. */
+static ScreenFsmConfig loadConfig() {
+    ScreenFsmConfig cfg;  // constructed with defaults
+    prefs.begin(NVS_NS, /*readOnly=*/true);
+    uint32_t sitMin = prefs.getUInt(NVS_SIT_MIN, 0);
+    uint32_t rstS   = prefs.getUInt(NVS_RST_S,   0);
+    uint32_t sumS   = prefs.getUInt(NVS_SUM_S,   0);
+    uint32_t slpS   = prefs.getUInt(NVS_SLP_S,   0);
+    prefs.end();
+
+    if (sitMin > 0) cfg.sitThresholdMs    = sitMin * 60UL * 1000;
+    if (rstS   > 0) cfg.resetDelayMs      = rstS   * 1000UL;
+    if (sumS   > 0) cfg.summaryDelayMs    = sumS   * 1000UL;
+    if (slpS   > 0) cfg.sleepDelayMs      = slpS   * 1000UL;
+
+    Serial.printf("[CFG] Loaded: sit=%um rst=%us sum=%us slp=%us\n",
+        cfg.sitThresholdMs / 60000,
+        cfg.resetDelayMs   / 1000,
+        cfg.summaryDelayMs / 1000,
+        cfg.sleepDelayMs   / 1000);
+    return cfg;
+}
+
+/** Persist current FSM config to NVS. */
+static void saveConfig(const ScreenFsmConfig &cfg) {
+    prefs.begin(NVS_NS, /*readOnly=*/false);
+    prefs.putUInt(NVS_SIT_MIN, cfg.sitThresholdMs / 60000);
+    prefs.putUInt(NVS_RST_S,   cfg.resetDelayMs   / 1000);
+    prefs.putUInt(NVS_SUM_S,   cfg.summaryDelayMs / 1000);
+    prefs.putUInt(NVS_SLP_S,   cfg.sleepDelayMs   / 1000);
+    prefs.end();
+    Serial.println("[CFG] Saved to NVS.");
+}
+
 // Latest sensor bundle
 SensorBundle    sensors = {};
 
@@ -84,39 +129,8 @@ MqttManager     mqttMgr;
 bool            ntpSynced   = false;
 bool            mqttStarted = false;
 
-// ----- Backlight PWM (2 levels: max 255, dim 128) -----
-static constexpr uint8_t  BL_PWM_CHANNEL = 0;
-static constexpr uint32_t BL_PWM_FREQ    = 5000;
-static constexpr uint8_t  BL_PWM_BITS    = 8;
-static constexpr uint8_t  BL_MAX         = 255;
-static constexpr uint8_t  BL_DIM         = 128;
-static constexpr float    BL_DIM_LUX     = 50.0f;   // ≤50 lux → dim
-static constexpr float    BL_MAX_LUX     = 100.0f;  // ≥100 lux → max (hysteresis)
-static constexpr uint32_t BL_GRACE_MS    = 10000;
-static uint8_t  blBrightness = 0;
-static bool     backlightOn  = false;
-
-static void blSetup() {
-    ledcSetup(BL_PWM_CHANNEL, BL_PWM_FREQ, BL_PWM_BITS);
-    ledcAttachPin(PIN_BACKLIGHT, BL_PWM_CHANNEL);
-    ledcWrite(BL_PWM_CHANNEL, 0);
-}
-
-static void blSet(uint8_t brightness) {
-    blBrightness = brightness;
-    ledcWrite(BL_PWM_CHANNEL, brightness);
-    backlightOn = (brightness > 0);
-}
-
-static void autoBacklight(float lux) {
-    if (backlightOn && blBrightness == BL_MAX && lux <= BL_DIM_LUX) {
-        blSet(BL_DIM);
-        Serial.println("[BL] Dim");
-    } else if (backlightOn && blBrightness == BL_DIM && lux >= BL_MAX_LUX) {
-        blSet(BL_MAX);
-        Serial.println("[BL] Max");
-    }
-}
+// ----- Backlight -----
+static bool backlightOn = false;
 
 // ----- Helpers -----
 
@@ -179,7 +193,8 @@ static void i2cScan() {
 }
 
 static void setBacklight(bool on) {
-    blSet(on ? 255 : 0);
+    digitalWrite(PIN_BACKLIGHT, on ? HIGH : LOW);
+    backlightOn = on;
     Serial.printf("[BL] Backlight %s\n", on ? "ON" : "OFF");
 }
 
@@ -242,18 +257,18 @@ static void switchScreen(ScreenMode mode) {
     switch (mode) {
         case ScreenMode::ACTIVE:
             currentScreen = &activeScreen;
-            blSet(BL_MAX);
+            setBacklight(true);
             break;
         case ScreenMode::ALERT:
             currentScreen = &alertScreen;
-            blSet(BL_MAX);
+            setBacklight(true);
             break;
         case ScreenMode::SUMMARY:
             currentScreen = &summaryScreen;
-            blSet(BL_DIM);  // summary = dim
+            setBacklight(true);
             break;
         case ScreenMode::SLEEP:
-            blSet(0);
+            setBacklight(false);
             currentScreen = nullptr;
             break;
     }
@@ -389,8 +404,40 @@ static void onMqttCmd(const char *topic, const uint8_t *payload, unsigned int le
         Serial.println("[CMD] Factory reset requested — not yet implemented (NVS wipe + reboot).");
         // TODO: Preferences clear + ESP.restart()
     } else if (t.endsWith("/cmd/config")) {
-        Serial.printf("[CMD] Config push (%u bytes) — not yet implemented (NVS threshold update).\n", len);
-        // TODO: Parse JSON → update ScreenFsmConfig → save to NVS → republish hello
+        Serial.printf("[CMD] Config push (%u bytes)\n", len);
+
+        StaticJsonDocument<256> doc;
+        DeserializationError err = deserializeJson(doc, payload, len);
+        if (err) {
+            Serial.printf("[CMD] Config JSON parse error: %s\n", err.c_str());
+            return;
+        }
+
+        // Read current config, overlay only provided fields
+        ScreenFsmConfig cfg = loadConfig();
+
+        if (doc.containsKey("sit_minutes") && doc["sit_minutes"].is<uint32_t>()) {
+            uint32_t m = doc["sit_minutes"].as<uint32_t>();
+            if (m >= 1 && m <= 180) cfg.sitThresholdMs = m * 60UL * 1000;
+        }
+        if (doc.containsKey("reset_delay_s") && doc["reset_delay_s"].is<uint32_t>()) {
+            uint32_t s = doc["reset_delay_s"].as<uint32_t>();
+            if (s >= 1 && s <= 300) cfg.resetDelayMs = s * 1000UL;
+        }
+        if (doc.containsKey("summary_delay_s") && doc["summary_delay_s"].is<uint32_t>()) {
+            uint32_t s = doc["summary_delay_s"].as<uint32_t>();
+            if (s >= 1 && s <= 600) cfg.summaryDelayMs = s * 1000UL;
+        }
+        if (doc.containsKey("sleep_delay_s") && doc["sleep_delay_s"].is<uint32_t>()) {
+            uint32_t s = doc["sleep_delay_s"].as<uint32_t>();
+            if (s >= 10 && s <= 3600) cfg.sleepDelayMs = s * 1000UL;
+        }
+
+        // Apply live + persist
+        fsm.begin(cfg);
+        saveConfig(cfg);
+
+        Serial.printf("[CMD] Config applied: sit=%um\n", cfg.sitThresholdMs / 60000);
     }
 }
 
@@ -406,9 +453,9 @@ void setup() {
     if (ESP.getPsramSize() == 0)
         Serial.println(F("[WARN] PSRAM not detected."));
 
-    // Backlight (PWM)
-    blSetup();
-    blSet(BL_MAX);
+    // Backlight (fixed digital)
+    pinMode(PIN_BACKLIGHT, OUTPUT);
+    setBacklight(true);
 
     // TFT
     tft.init();
@@ -438,8 +485,8 @@ void setup() {
     delay(200);
     readSensors();
 
-    // FSM — start with defaults (45min sit, 10s reset, 60s summary, 5min sleep)
-    ScreenFsmConfig cfg;
+    // FSM — load thresholds from NVS (falls back to defaults on first boot)
+    ScreenFsmConfig cfg = loadConfig();
     fsm.begin(cfg);
 
     // Feed initial data and start on ACTIVE
@@ -474,8 +521,8 @@ void loop() {
             ntpSynced = tryNTPSync();  // non-blocking, retries next loop
         }
         if (ntpSynced) {
-            mqttStarted = mqttMgr.begin();
-            if (mqttStarted) publishHello();
+            mqttStarted = true;  // always true — loop() handles reconnect with backoff
+            if (mqttMgr.begin()) publishHello();
         }
     }
 
@@ -490,11 +537,6 @@ void loop() {
         readSensors();
         feedScreens();
 
-        // Auto backlight: off when very dark, on when light
-        // Skip during SLEEP (FSM owns it) and during startup grace period
-        if (fsm.mode() != ScreenMode::SLEEP && sensors.lux.ok && now > BL_GRACE_MS) {
-            autoBacklight(sensors.lux.lux);
-        }
     }
 
     // Run FSM with current presence

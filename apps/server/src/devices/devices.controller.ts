@@ -51,6 +51,14 @@ export class DevicesController {
     const topic = MQTT_TOPICS.cmdConfig(device.node_id);
     await this.mqttService.publish(topic, payload);
 
+    // Persist pushed config so dashboard can read it back
+    await this.devicesService.saveConfig(id, {
+      cfg_sit_minutes: payload.sit_minutes ?? null,
+      cfg_co2_max_ppm: payload.co2_max_ppm ?? null,
+      cfg_lux_min: payload.lux_min ?? null,
+      cfg_lux_max: payload.lux_max ?? null,
+    });
+
     return { topic, payload };
   }
 

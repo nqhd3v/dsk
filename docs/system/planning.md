@@ -38,17 +38,20 @@ If the agent has memory access, it will also find these notes:
 
 | Field | Value |
 |-------|-------|
-| Last completed phase | **Module 2 (schemas) + Module 4 (infra) + Module 5 (NestJS backend)** |
-| Current phase | **Module 3 — ESP WiFi + MQTT link** |
-| Next step | Test full MQTT→Postgres→WS pipeline, then wire ESP WiFi+MQTT (Module 3) |
+| Last completed phase | **Module 2 (schemas) + Module 3 (ESP WiFi+MQTT) + Module 4 (infra) + Module 5 (NestJS backend)** |
+| Current phase | **Module 6 — Next.js dashboard** |
+| Next step | Build live dashboard (W.0→W.1) |
 | Hardware on bench | ESP32-S3 MKE-K01, ILI9488 TFT, BH1750, BME680, LD2410S (3.3V, UART2 + OT2), ACD1200 (via BSS138), buzzer |
 | All wired? | All sensors wired. OT2 (GPIO 4) optional but recommended for faster presence. |
 | ESP standalone working? | Yes. All sensors reading on TFT. 4-state FSM transitions working. Countdown smooth. |
-| RPi gateway infra | Docker stack running: Mosquitto + Postgres/TimescaleDB + Caddy. Passwd generated. |
-| NestJS backend | **Done.** Port 4000. MQTT sub, telemetry persist, device CRUD, config push, WebSocket broadcast. See `docs/system/api.md` for full API reference. |
+| ESP WiFi+MQTT working? | Yes. Non-blocking WiFi, NTP sync, MQTT telemetry every 10s, hello beacon retained. |
+| RPi gateway infra | Docker stack running: Mosquitto + Postgres/TimescaleDB + Caddy. Wi-Fi AP (hostapd+dnsmasq on wlan1) configured. |
+| Full pipeline verified? | **Yes.** ESP→MQTT→Postgres→WebSocket broadcast confirmed 2026-05-29. Server logs "WS broadcast: node1". |
+| NestJS backend | **Done.** Port 4000. MQTT sub, telemetry persist, device CRUD, config push, WebSocket broadcast. |
 | Schemas package | `@dsk/schemas` built (CJS). EnvTelemetry, Hello, Cmd, Device, MQTT topics. |
+| Web app | Socket.io client + hooks done (`lib/socket.ts`, `hooks/use-socket.tsx`). Dashboard pages not started. |
 | Open decisions | BLE provisioning UX (phone vs web BLE) |
-| Last verified | Server starts, connects to Postgres + Mosquitto. Full pipeline test pending. |
+| Last verified | Full pipeline ESP→MQTT→Postgres→WS working 2026-05-29. |
 
 ---
 
@@ -172,12 +175,16 @@ public:
 
 | Step | Status | Est. | Notes |
 | ---- | ------ | ---- | ----- |
-| 4.1 ActiveScreen — clock-left + env-right layout (480×320) | done | 0.5 d | Left: countdown MM:SS + "of 45 min" + status pill (Active/Away). Right: 6 env rows (Radar+dist, Light, Temp, Humidity, CO2, Air). Footer: pressure + sitting time. Dirty-region redraws |
-| 4.2 Color-code each value by threshold (green / amber / red) | done | 0.25 d | Lux <200 orange, >400 yellow. CO2 >800 yellow, >1000 red. Countdown <10m yellow, <2m red |
+| 4.1 ActiveScreen — redesigned v3 | done | 0.5 d | Left: HH:MM clock (primary) + "Stand up in XX min" hint + [Active] pill + actionable suggestion. Right: 2×2 mini cards (Temp °C, Humidity %, CO2 quality, Air quality). Footer: raw env data + online dot (green/dim). |
+| 4.2 Color-code each value by threshold (green / amber / red) | done | 0.25 d | Lux <200 orange, >400 yellow. CO2 >800 yellow, >1000 red. Countdown <2min red, <10min yellow |
 | 4.3 SummaryScreen — 3×2 env cards when absent | done | 0.25 d | Centered cards: Light, Temp, Humidity, CO2, Air, Pressure. "Away" header. No countdown |
 | 4.4 AlertScreen — full-screen "Stand up!" with pulse animation | done | 0.25 d | Pulses red/orange every 800ms. Exclamation circle + sitting duration + "Move to dismiss" hint |
 | 4.5 Theme system — shared colors + fonts across all screens | done | 0.1 d | `Theme.h`: RGB565 palette, FreeFonts via extern declarations (not Free_Fonts.h — PlatformIO path issue) |
-| 4.6 SLEEP mode — backlight off on GPIO 14 when absent >5 min | done | 0.1 d | `switchScreen()` in main.cpp controls backlight. Any presence → wake |
+| 4.6 SLEEP mode — backlight off when absent >5 min | done | 0.1 d | `switchScreen()` controls backlight via LEDC PWM. Any presence → wake |
+| 4.7 Backlight PWM — 2 levels (max 255, dim 128) + auto-dim at ≤50 lux | done | 0.1 d | LEDC ch0 @ 5kHz. Hysteresis: dim ≤50 lux, max ≥100 lux. 10s grace on boot. SUMMARY uses dim. |
+| 4.8 Splash screen — cyan sweep bar + "Desk Guardian" title + version | done | 0.1 d | Replaces R/G/B smoke test. ~1.4s total. |
+| 4.9 Non-blocking NTP — poll with 0ms timeout, retry next loop | done | 0.1 d | `tryNTPSync()`. No more 10s block on boot. |
+| 4.10 Actionable suggestions — "Turn on fan", "Open a window" etc. | done | 0.1 d | Replaces raw status text ("Too hot"). Priority-based worst-first. |
 
 ---
 
@@ -221,13 +228,13 @@ public:
 
 | Step | Status | Est. | Notes |
 | ---- | ------ | ---- | ----- |
-| 7.1 WiFi STA connect to `DG-<mac>` AP, creds from `secrets.h` (gitignored). Status on TFT status bar. | todo | 0.5 d | Bench dev — hardcoded |
-| 7.2 NTP sync after WiFi up | todo | 0.1 d | For timestamp in telemetry payload |
-| 7.3 MQTT client (`PubSubClient` or `arduino-mqtt`), broker host/port/user/pass from NVS | todo | 0.5 d |  |
-| 7.4 Publish `dg/<node>/telemetry/env` every 10 s, JSON matching schema | todo | 0.5 d |  |
-| 7.5 Retained `dg/<node>/hello` on boot with fw_version + chip info | todo | 0.25 d |  |
-| 7.6 Subscribe `dg/<node>/cmd/factory_reset` → NVS erase + reboot | todo | 0.25 d |  |
-| 7.7 Subscribe `dg/<node>/cmd/config` → update thresholds in NVS, ack via hello | todo | 0.25 d |  |
+| 7.1 WiFi STA connect — non-blocking, lazy retry every 10s | done | 0.5 d | `wifi_manager.{h,cpp}`. No retry spam. Only logs connect/disconnect. |
+| 7.2 NTP sync after WiFi up — non-blocking | done | 0.1 d | `tryNTPSync()` polls with 0ms timeout. Uses broker IP as primary NTP, pool.ntp.org fallback. |
+| 7.3 MQTT client (PubSubClient), auto-reconnect 5s backoff | done | 0.5 d | `mqtt_manager.{h,cpp}`. 512-byte buffer. Static callback routing via singleton. |
+| 7.4 Publish `dg/<node>/telemetry/env` every 10s, JSON matches schema | done | 0.5 d | ArduinoJson v7. Null for bad sensors. Verified against zod schema on server. |
+| 7.5 Retained `dg/<node>/hello` on MQTT connect | done | 0.25 d | fw_version, chip info, MAC, IP, uptime. |
+| 7.6 Subscribe `dg/<node>/cmd/factory_reset` — stub | wip | 0.25 d | Subscription + log. NVS wipe not yet implemented. |
+| 7.7 Subscribe `dg/<node>/cmd/config` — stub | wip | 0.25 d | Subscription + log. NVS threshold update not yet implemented. |
 | 7.8 BLE provisioning via `WiFiProv.h` — replaces hardcoded creds | todo | 1 d | Final step before shipping. Until then bench dev uses `secrets.h` |
 
 ---
@@ -239,7 +246,7 @@ public:
 | G.1 Pi 5 OS install — Bookworm 64-bit, NVMe boot, SSH | todo | 0.5 d | Pi on bench, deploy later |
 | G.2 `infrastructure/mosquitto/` Docker compose + per-node ACL file template | done | 0.5 d | `docker-compose.yml` + `mosquitto.conf` + `acl` + `passwd` (generated). Dev: dg_server + node1 accounts |
 | G.3 `infrastructure/postgres/` Docker compose with TimescaleDB + init SQL | done | 0.5 d | `init.sql`: devices table + telemetry hypertable + indexes. 90-day retention + 5-min rollup commented out |
-| G.4 Wi-Fi AP: `hostapd + dnsmasq` on wlan0, SSID `DG-<mac>` | todo | 1 d | Deferred to Pi deploy phase |
+| G.4 Wi-Fi AP: hostapd + dnsmasq on wlan1 (USB dongle), SSID DG-CENTER | wip | 1 d | AP broadcasting, DHCP serving 192.168.4.x. Static IP via systemd oneshot. `no-resolv` in dnsmasq. NetworkManager unmanage wlan1. See `docs/system/rpi-setup.md`. |
 | G.5 `infrastructure/caddy/` reverse proxy: web + API + WS on single port | done | 0.5 d | Caddyfile: /api/* + /socket.io/* → :4000, else → :3000 |
 | G.6 Grafana container (optional) pointing at Postgres | skip | 0.25 d | Skipped — keep stack minimal |
 
@@ -267,7 +274,7 @@ Detailed build plan: `docs/system/dashboard.md`
 
 | Step | Status | Est. | Notes |
 | ---- | ------ | ---- | ----- |
-| W.0 Foundation: strip starter, deps, API client, WS hook, layout shell | todo | 1 d | shadcn, socket.io-client, @dsk/schemas, lib/api.ts, lib/socket.ts |
+| W.0 Foundation: socket.io client + hooks | done | 1 d | `lib/socket.ts` (typed client), `hooks/use-socket.tsx` (`useTelemetry`, `useAllTelemetry`). socket.io-client installed. |
 | W.1 Live dashboard: device tiles + real-time WS + quality badges | todo | 1.5 d | Match firmware quality thresholds |
 | W.2 Device management: list, approve pending, rename, remove | todo | 1 d |  |
 | W.3 Threshold config: per-device form → MQTT push | todo | 0.5 d |  |
@@ -311,7 +318,9 @@ dsk-guard/
 ├── pnpm-workspace.yaml             # apps/web, apps/server, packages/*
 ├── turbo.json                      # task graph
 ├── apps/
-│   ├── web/                        # Next.js 16, Tailwind v4 (not started)
+│   ├── web/                        # Next.js 16, Tailwind v4 (WS hooks done, dashboard pages todo)
+│   │   ├── lib/socket.ts           # socket.io client (typed, /telemetry namespace)
+│   │   ├── hooks/use-socket.tsx    # useTelemetry(nodeId), useAllTelemetry()
 │   └── firmware/                   # PlatformIO, Arduino-ESP32
 │       ├── platformio.ini
 │       ├── include/secrets.h.example
@@ -329,6 +338,9 @@ dsk-guard/
 │           │   ├── ld2410s.{h,cpp} # UART2 mmWave radar (ACTIVE — minimal frame 6E..62, OT2, 115200, 3.3V)
 │           │   ├── ld2410c.{h,cpp} # UART2 mmWave radar (PARKED — hardware issue, excluded from build)
 │           │   └── acd1200.{h,cpp} # UART1 CO2 (custom Aosong protocol)
+│           ├── network/
+│           │   ├── wifi_manager.{h,cpp}  # non-blocking WiFi STA, lazy retry 10s
+│           │   └── mqtt_manager.{h,cpp}  # PubSubClient wrapper, auto-reconnect 5s
 │           ├── logic/
 │           │   └── ScreenFsm.{h,cpp} # 4-state screen FSM (ACTIVE/ALERT/SUMMARY/SLEEP), 2-state presence
 │           └── ui/
@@ -385,7 +397,9 @@ dsk-guard/
 │   ├── system/
 │   │   ├── README.md               # full spec
 │   │   ├── planning.md             # ← this file
-│   │   └── api.md                  # backend API reference (REST + WS + MQTT)
+│   │   ├── api.md                  # backend API reference (REST + WS + MQTT)
+│   │   ├── dashboard.md            # web dashboard build plan (W.0–W.5)
+│   │   └── rpi-setup.md            # RPi 5 AP + Docker setup guide (9 steps)
 │   └── hardware/
 │       ├── README.md               # datasheet index
 │       └── wire.md                 # complete wiring reference (board pin labels)

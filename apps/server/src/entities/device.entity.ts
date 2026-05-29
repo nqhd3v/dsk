@@ -41,4 +41,17 @@ export class DeviceEntity {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at!: Date;
+
+  // Last-pushed config thresholds (null = never pushed)
+  @Column({ type: 'int', nullable: true })
+  cfg_sit_minutes!: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  cfg_co2_max_ppm!: number | null;
+
+  @Column({ type: 'real', nullable: true })
+  cfg_lux_min!: number | null;
+
+  @Column({ type: 'real', nullable: true })
+  cfg_lux_max!: number | null;
 }

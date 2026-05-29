@@ -81,6 +81,26 @@ export class DevicesService {
     return this.repo.save(device);
   }
 
+  /** Persist the last-pushed config thresholds (partial — only non-null fields overwritten) */
+  async saveConfig(
+    id: string,
+    cfg: {
+      cfg_sit_minutes: number | null;
+      cfg_co2_max_ppm: number | null;
+      cfg_lux_min: number | null;
+      cfg_lux_max: number | null;
+    },
+  ): Promise<void> {
+    const update: Partial<DeviceEntity> = {};
+    if (cfg.cfg_sit_minutes !== null) update.cfg_sit_minutes = cfg.cfg_sit_minutes;
+    if (cfg.cfg_co2_max_ppm !== null) update.cfg_co2_max_ppm = cfg.cfg_co2_max_ppm;
+    if (cfg.cfg_lux_min !== null) update.cfg_lux_min = cfg.cfg_lux_min;
+    if (cfg.cfg_lux_max !== null) update.cfg_lux_max = cfg.cfg_lux_max;
+    if (Object.keys(update).length > 0) {
+      await this.repo.update(id, update);
+    }
+  }
+
   /** Rename a device */
   async rename(id: string, name: string): Promise<DeviceEntity> {
     const device = await this.repo.findOne({ where: { id } });
