@@ -25,7 +25,7 @@ module.exports = {
       name: "dg-web",
       cwd: "./apps/web",
       script: "node",
-      args: ".next/standalone/apps/web",
+      args: ".next/standalone/apps/web/server.js",
       interpreter: "none",
       instances: 1,
       autorestart: true,
