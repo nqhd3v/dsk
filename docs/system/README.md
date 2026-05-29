@@ -11,11 +11,11 @@ Two-module IoT system. ESP32-S3 edge node senses environment + presence and runs
 | 1   | MKE-K01 board (ESP32-S3-WROOM-1 N16R8) | Edge MCU                                 | —                                 | 16 MB Flash, 8 MB OPI PSRAM, CH343P USB-UART, on-board RGB LED on GPIO 48. **GPIO 35/36/37 reserved for PSRAM — do not use.** |
 | 2   | Raspberry Pi 5                         | Gateway / AP / dashboard host (optional) | LAN + Wi-Fi AP                    | Bookworm 64-bit on NVMe, optional UPS, optional LTE                                                              |
 | 3   | BH1750                                 | Ambient light (lux)                      | I2C @ 0x23                        | Confirmed working, 200–400 lux indoor                                                                            |
-| 4   | BME680                                 | Temp / RH / pressure / VOC (gas)         | I2C @ 0x76                        | Adafruit lib; BSEC2 needs 5–20 min warmup for IAQ                                                                |
+| 4   | BME680                                 | Temp / RH / pressure / VOC (gas)         | I2C @ 0x77                        | Adafruit lib; BSEC2 needs 5–20 min warmup for IAQ                                                                |
 | 5   | ACD1200 (Aosong)                       | CO2 (NDIR)                               | UART @ 1200 baud                  | Aosong custom protocol (NOT Modbus). 5V TX → needs BSS138 level shifter to ESP RX. Pin 5 SET = GND for UART mode |
-| 6   | HLK-LD2410C                            | mmWave presence + distance (24 GHz FMCW) | UART @ 256000 baud                | Working via UART parse; 60° cone, ~6 m range, detects through thin material                                      |
-| 7   | HLK-LD2410S                            | mmWave presence (alt variant)            | UART                              | Owned spare                                                                                                      |
-| 8   | PIR 5V                                 | Coarse motion wake-up                    | GPIO                              | Optional, supplements radar                                                                                      |
+| 6   | HLK-LD2410C                            | mmWave presence + distance (24 GHz FMCW) | UART @ 256000 baud, **5V**        | **Parked** — hardware wiring issue (zero UART data). Driver code kept. Has moving/stationary classification + energy. |
+| 7   | HLK-LD2410S                            | mmWave presence + distance (24 GHz FMCW) | UART @ 115200 baud, **3.3V**      | **Active.** Minimal frame: `6E [state] [dist_lo] [dist_hi] 62`. OT2 pin = digital presence (GPIO 4). 2-state model: PRESENT (≤150cm) / ABSENT. 60° cone, ~8 m moving, ~4 m stationary. |
+| 8   | PIR 5V                                 | Coarse motion wake-up                    | GPIO                              | **Skipped** — LD2410C radar covers motion + stationary detection. PIR adds no value |
 | 9   | HCHO sensor (DFRobot)                  | Formaldehyde                             | I2C (SEN0568) or analog (SEN0231) | SKU TBC, postponed                                                                                               |
 | 10  | ILI9488 3.5" TFT (480×320)             | UI display + resistive touch (XPT2046)   | SPI                               | nshopvn.com module, 3V3/5V tolerant, backlight on GPIO 14                                                        |
 | 11  | BSS138 level shifter board             | 5V ↔ 3V3 bidirectional                   | —                                 | For ACD1200 TX → ESP RX                                                                                          |
@@ -46,6 +46,23 @@ Two-module IoT system. ESP32-S3 edge node senses environment + presence and runs
 - Docker stack: **Mosquitto** (MQTT broker), **PostgreSQL + TimescaleDB** (single store for both device registry and time-series telemetry), **NestJS** (REST + WebSocket + MQTT subscriber), **Caddy** (reverse proxy + web).
 - NestJS subscribes to Mosquitto, writes telemetry rows into a Timescale hypertable, and pushes live updates to the Next.js dashboard via WebSocket (<2 s).
 - Grafana optional — can point at the same Postgres for ad-hoc charts.
+
+**Presence model (2-state):**
+
+Simple binary: **PRESENT** (sensor says someone AND smoothed distance ≤ 150 cm) or **ABSENT** (no one OR distance > 150 cm). OT2 digital pin used as presence ground truth when wired (faster than UART state which has built-in unmanned delay). Distance smoothed with 5-sample moving average.
+
+**Screen FSM (4-state display system):**
+
+The TFT display runs a 4-state finite state machine driven by presence:
+
+| Mode | Trigger | Display | Backlight |
+|------|---------|---------|-----------|
+| ACTIVE | Person PRESENT | Left: countdown timer (MM:SS to sit reminder). Right: 6 env rows (Radar, Light, Temp, Humidity, CO2, Air). Footer: pressure + sitting duration | ON |
+| ALERT | Sitting countdown reaches 0 (default 45 min) | Full-screen "Stand up!" with pulsing red/orange animation, sitting duration, "Move to dismiss" hint | ON |
+| SUMMARY | Absent > 60 s | Centered 3×2 env cards (Light, Temp, Humidity, CO2, Air, Pressure). "Away" header | ON |
+| SLEEP | Absent > 5 min | Nothing rendered | OFF |
+
+Transitions: ACTIVE+present→countdown accumulates. Away >10s→reset countdown. Away >60s→SUMMARY. Away >5min→SLEEP. ALERT→ACTIVE on presence return or 30s auto-dismiss. SUMMARY/SLEEP→ACTIVE on any presence. Thresholds configurable (hardcoded now, NVS later, web dashboard after RPi).
 
 **Data flow (when RPi present):** sensor → ESP32 → MQTT topic `dg/<node>/telemetry/env` → NestJS MQTT subscriber → PostgreSQL/Timescale → NestJS WebSocket → browser tile.
 
@@ -184,7 +201,8 @@ _Auth model:_ each ESP gets own MQTT creds (`node1`, `node2`, …) so per-device
 
 | Signal       | ESP32 GPIO | Device                             |
 | ------------ | ---------- | ---------------------------------- |
-| PIR OUT      | 6          | PIR 5V motion (input)              |
+| LD2410S OT2  | 4          | Radar digital presence (HIGH=someone, LOW=no one) |
+| PIR OUT      | 6          | PIR 5V motion (input) — skipped    |
 | LED_DIN      | 7          | External NeoPixel strip (optional) |
 | Buzzer       | 41         | Piezo + transistor                 |
 | On-board RGB | 48         | Built-in WS2812 (reserved)         |
@@ -197,6 +215,8 @@ _Auth model:_ each ESP gets own MQTT creds (`node1`, `node2`, …) so per-device
 | USB-C charge    | BQ24074 input                                                                        |
 
 ### Wiring rules
+
+> **Detailed wiring with board pin labels:** see `docs/hardware/wire.md` for pin-by-pin reference matching physical board labels (ILI9488 left-to-right board order, BSS138 AVCC/BVCC labels, ACD1200 pinout).
 
 - Unplug ESP USB **before** wiring any new VCC.
 - I2C devices share bus — add pull-ups only if module has none (BH1750 + BME680 modules usually include them).
@@ -224,7 +244,7 @@ Stored in NVS, editable via touch UI (later) or web dashboard (after RPi added).
 
 | Layer | Choice |
 | ----- | ------ |
-| Firmware | PlatformIO + Arduino-ESP32, TFT_eSPI display lib |
+| Firmware | PlatformIO + Arduino-ESP32, TFT_eSPI (FreeFonts via extern decl, not Free_Fonts.h) |
 | MQTT broker | Mosquitto |
 | Database | PostgreSQL + TimescaleDB extension (single DB for registry + telemetry) |
 | Backend | NestJS (TypeScript) with `@nestjs/microservices` MQTT transport |

@@ -2,9 +2,14 @@
 
 - ESP board: https://github.com/makereduvn/MKE-K01-ESP32-S3-DEV-KIT with version N16R8
 - ACD1200: `/docs/hardware/[Hshop.vn] ACD1200 datasheet Dec 2024.pdf`
-- HLK-LD2410C:
+- HLK-LD2410C (5V, 256000 baud — PARKED, hardware issue):
   - `/docs/hardware/HLK LD2410C Life Presence Sensor Module Data Sheet V1.00.pdf`
   - `/docs/hardware/HLK-LD2410C Serial communication protocol V1.07.pdf`
+- HLK-LD2410S (3.3V, 115200 baud — ACTIVE):
+  - `/docs/hardware/HLK-LD2410S User manual-V1.3.pdf`
+  - `/docs/hardware/HLK-LD2410S serial communication protocol-V1.00.pdf`
+  - Default output: **minimal frame** `6E [state] [dist_lo] [dist_hi] 62` (5 bytes). Standard frame (F4F3F2F1) requires cmd 0x007A.
+  - OT2 pin: digital presence output (HIGH=someone, LOW=no one)
 - ILI9488: Sample in `/docs/hardware/sample/ili9488` folder
 - DFRobot Fermion MEMS HCHO:
   - https://wiki.dfrobot.com/sen0563/
@@ -13,5 +18,5 @@
   - `/docs/hardware/mach-chuyen-muc-i2c.png`
 - BME680:
   - `/docs/hardware/bme680.png`
-    -BH1750
-  - `/docs/hardwar/bh1750fvi-e-186247.pdf`
+- BH1750:
+  - `/docs/hardware/bh1750fvi-e-186247.pdf`

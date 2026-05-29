@@ -1,0 +1,19 @@
+# dsk-guard Mosquitto ACL
+# Format: https://mosquitto.org/man/mosquitto-conf-5.html (acl_file)
+#
+# Server account — full access to all dg/ topics
+user dg_server
+topic readwrite dg/#
+
+# ── Per-node ACL (add one block per ESP device) ───────────────
+# Template:
+#   user node1
+#   topic write dg/node1/telemetry/env
+#   topic write dg/node1/hello
+#   topic read  dg/node1/cmd/#
+
+# Dev node for bench testing
+user node1
+topic write dg/node1/telemetry/env
+topic write dg/node1/hello
+topic read  dg/node1/cmd/#

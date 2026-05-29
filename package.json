@@ -15,6 +15,9 @@
     "build:server": "turbo build --filter=server",
     "lint:web": "turbo lint --filter=web",
     "lint:server": "turbo lint --filter=server",
+    "ui:init": "pnpm -C apps/web dlx shadcn@latest init",
+    "ui:add": "pnpm -C apps/web dlx shadcn@latest add",
+
     "fw:build": "pio run -d apps/firmware",
     "fw:upload": "pio run -d apps/firmware -t upload",
     "fw:monitor": "pio device monitor -d apps/firmware",

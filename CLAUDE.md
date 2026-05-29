@@ -31,15 +31,16 @@ docs/
 
 ## Tech Stack (locked)
 
-| Layer | Choice |
-|-------|--------|
-| Firmware | PlatformIO + Arduino-ESP32, TFT_eSPI |
-| MQTT broker | Mosquitto |
-| Database | PostgreSQL + TimescaleDB extension (single store for registry + telemetry hypertable) |
-| Backend | NestJS (TypeScript) with `@nestjs/microservices` MQTT transport |
-| Web | Next.js 16.2.6 + React 19 |
-| Reverse proxy | Caddy |
+| Layer         | Choice                                                                                |
+| ------------- | ------------------------------------------------------------------------------------- |
+| Firmware      | PlatformIO + Arduino-ESP32, TFT_eSPI                                                  |
+| MQTT broker   | Mosquitto                                                                             |
+| Database      | PostgreSQL + TimescaleDB extension (single store for registry + telemetry hypertable) |
+| Backend       | NestJS (TypeScript) with `@nestjs/microservices` MQTT transport                       |
+| Web           | Next.js 16.2.6 + React 19                                                             |
+| Reverse proxy | Caddy                                                                                 |
 
+ORM: TypeORM (not Prisma).
 No InfluxDB. No Telegraf. No SQLite. No FastAPI.
 
 ## Package Manager & Build
@@ -56,14 +57,14 @@ pnpm build          # build all apps
 
 ## Key Protocols
 
-| Protocol | Used for |
-|----------|----------|
-| MQTT | ESP32 → RPi telemetry (`dg/<node>/telemetry/env`) |
-| WebSocket | NestJS → browser live updates |
-| BLE | ESP32 provisioning (push Wi-Fi + MQTT creds) — added late, hardcoded creds in `secrets.h` during bench dev |
-| I2C | BH1750 (lux), BME680 (T/RH/VOC/pressure) |
-| UART | ACD1200 CO2 @1200 baud, LD2410C radar @256000 baud |
-| SPI | ILI9488 TFT display + XPT2046 touch |
+| Protocol  | Used for                                                                                                   |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| MQTT      | ESP32 → RPi telemetry (`dg/<node>/telemetry/env`)                                                          |
+| WebSocket | NestJS → browser live updates                                                                              |
+| BLE       | ESP32 provisioning (push Wi-Fi + MQTT creds) — added late, hardcoded creds in `secrets.h` during bench dev |
+| I2C       | BH1750 (lux), BME680 (T/RH/VOC/pressure)                                                                   |
+| UART      | ACD1200 CO2 @1200 baud, LD2410S radar @115200 baud (3.3V!, minimal frame 6E..62). LD2410C @256000 parked.  |
+| SPI       | ILI9488 TFT display + XPT2046 touch                                                                        |
 
 ## MQTT Topics
 
@@ -73,6 +74,18 @@ dg/<node>/hello             retained presence beacon
 dg/<node>/cmd/factory_reset
 dg/<node>/cmd/config        threshold push from server
 ```
+
+## Presence Model (2-state)
+
+Simple binary: PRESENT (sensor says someone AND smoothed distance ≤ 150 cm) or ABSENT. OT2 digital pin (GPIO 4) = instant presence ground truth when wired. Distance smoothed with 5-sample moving average. LD2410S minimal frame: `6E [state] [dist_lo] [dist_hi] 62` (5 bytes, factory default).
+
+## Screen FSM Timings
+
+- Present → countdown runs (45 min default)
+- Away > 10 s → reset countdown
+- Away > 60 s → SUMMARY screen
+- Away > 5 min → SLEEP (backlight off)
+- ALERT auto-dismiss on presence return or 30 s timeout
 
 ## Sensor Thresholds (defaults — stored in NVS on ESP, editable via web after RPi added)
 
@@ -99,6 +112,7 @@ GPIO 35/36/37 are wired to octal PSRAM — **do not use as GPIO**. Full pin map 
 Next.js 16 (App Router). **This is Next.js 16, NOT the Next.js you know from training data** — App Router APIs, file conventions, and config differ from older versions. Before writing or modifying any Next.js code, read the relevant guide under `node_modules/next/dist/docs/`. Heed deprecation notices.
 
 Two main pages:
+
 1. Live dashboard — sensor tiles, presence status, WebSocket updates
 2. Device management — add/remove/name ESP nodes
 

@@ -1,0 +1,6 @@
+# Don't commit real passwords
+# mosquitto/passwd is gitignored — generate locally per README
+# Keep the template/example in git
+
+# Mosquitto password file (generated, contains hashed passwords)
+# mosquitto/passwd  — we keep a placeholder in git for now, but on prod this is generated

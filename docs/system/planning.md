@@ -1,151 +1,401 @@
-# Desk Guardian — Build Plan
+# Desk Guardian — Build Plan & Status
 
-Firmware-first, standalone-first. Each phase produces a runnable artifact. Estimates are rough and assume part-time work — multiply by your actual pace.
+This file is the **single source of truth** for what is done, in progress, and next. Update it as work progresses. New chats should read this file first.
+
+---
+
+## How to resume work in a new chat
+
+Paste this kickoff message into a new conversation. The agent will know exactly where things stand.
+
+```
+We are continuing work on the dsk-guard project (IoT desk wellness monitor).
+Repo root: /Users/huynguyen/apps/dsk-guard
+
+Please read these files in order before doing anything:
+  1. CLAUDE.md                       — project rules, stack, monorepo layout
+  2. docs/system/README.md           — full system spec, hardware + protocols
+  3. docs/system/planning.md         — build plan & current status (THIS IS THE SOURCE OF TRUTH)
+  4. docs/hardware/README.md         — datasheet index
+
+Then check the "Current state" section in planning.md and tell me:
+  - what phase we are on
+  - what the next concrete step is
+  - any open questions or blockers listed
+
+Do NOT start coding until I confirm the next step.
+Caveman mode is the default response style.
+```
+
+If the agent has memory access, it will also find these notes:
+
+- `user_role.md` — collaboration style
+- `project_dskguard_stack.md` — locked tech decisions
+
+---
+
+## Current state
+
+| Field | Value |
+|-------|-------|
+| Last completed phase | **Module 2 (schemas) + Module 4 (infra) + Module 5 (NestJS backend)** |
+| Current phase | **Module 3 — ESP WiFi + MQTT link** |
+| Next step | Test full MQTT→Postgres→WS pipeline, then wire ESP WiFi+MQTT (Module 3) |
+| Hardware on bench | ESP32-S3 MKE-K01, ILI9488 TFT, BH1750, BME680, LD2410S (3.3V, UART2 + OT2), ACD1200 (via BSS138), buzzer |
+| All wired? | All sensors wired. OT2 (GPIO 4) optional but recommended for faster presence. |
+| ESP standalone working? | Yes. All sensors reading on TFT. 4-state FSM transitions working. Countdown smooth. |
+| RPi gateway infra | Docker stack running: Mosquitto + Postgres/TimescaleDB + Caddy. Passwd generated. |
+| NestJS backend | **Done.** Port 4000. MQTT sub, telemetry persist, device CRUD, config push, WebSocket broadcast. See `docs/system/api.md` for full API reference. |
+| Schemas package | `@dsk/schemas` built (CJS). EnvTelemetry, Hello, Cmd, Device, MQTT topics. |
+| Open decisions | BLE provisioning UX (phone vs web BLE) |
+| Last verified | Server starts, connects to Postgres + Mosquitto. Full pipeline test pending. |
+
+---
 
 ## Status legend
 
 - `todo` — not started
-- `wip` — in progress
-- `done` — finished and verified on hardware
+- `wip` — code written, not yet verified on hardware
+- `done` — finished AND verified on hardware
 - `blocked` — needs decision or hardware
 - `skip` — descoped for this version
+
+When marking `done`, always include the verification result in the **Notes** column or the phase detail subsection.
 
 ---
 
 ## Module 1 — ESP32-S3 edge node (standalone)
 
-| Phase | Step | Status | Est. | Notes |
-| ----- | ---- | ------ | ---- | ----- |
-| 0. Skeleton | Create `apps/firmware/` PlatformIO project, board `esp32-s3-devkitc-1`, framework `arduino` | done | 0.5 d | `platformio.ini`, `.gitignore`, `secrets.h.example`, `README.md` written |
-| 0. Skeleton | Configure PSRAM `qio_opi`, 16 MB partition table | done |  | `board_build.arduino.memory_type=qio_opi`, `default_16MB.csv` |
-| 0. Skeleton | Smoke test — blink onboard RGB on GPIO 48 | wip |  | Code written (Adafruit NeoPixel, R→G→B cycle + serial heartbeat). **Needs flash test on hardware.** |
-| 1. Display | Vendor TFT_eSPI, write `User_Setup.h` for ILI9488 + SPI pins (11/12/13, CS 21, DC 10, RST 47, BL 14) | todo | 1.5 d | Start at 27 MHz SPI |
-| 1. Display | RGB fill + text test on TFT | todo |  | Sanity check |
-| 1. Display | `Screen` base class + `HomeScreen` skeleton (no real data yet) | todo |  | Render loop at ~10 Hz |
-| 2. Sensors | BH1750 driver (I2C @ 0x23), print lux to TFT | todo | 0.5 d | Lib: `claws/BH1750` |
-| 2. Sensors | BME680 driver (I2C @ 0x76), T/RH/pressure/gas resistance | todo | 0.5 d | Lib: `adafruit/Adafruit BME680 Library`. BSEC2 optional later |
-| 2. Sensors | PIR digital read on GPIO 6 | todo | 0.25 d |  |
-| 2. Sensors | LD2410C radar driver (UART2 256000 baud, GPIO 15/16) | todo | 1 d | Lib: `ncmreynolds/ld2410`. Parse moving/stationary + distance |
-| 2. Sensors | ACD1200 CO2 driver (UART1 1200 baud, GPIO 17/18, BSS138 on RX) | todo | 1 d | Custom Aosong protocol — no public lib. Reference `/docs/hardware/[Hshop.vn] ACD1200 datasheet Dec 2024.pdf` |
-| 2. Sensors | Buzzer PWM tone test on GPIO 41 | todo | 0.25 d |  |
-| 3. Logic | Presence FSM: `ABSENT` / `PRESENT_MOVING` / `PRESENT_STATIONARY` from radar + PIR | todo | 0.75 d |  |
-| 3. Logic | Sitting timer + stand-up reminder trigger | todo | 0.25 d | Default 45 min |
-| 3. Logic | Hydration timer + nudge | todo | 0.25 d | Configurable interval |
-| 3. Logic | Threshold persistence in NVS (Preferences API) with defaults | todo | 0.25 d | CO2/lux/sit/hydrate |
-| 4. UI | Tiled home layout (lux / T-RH / CO2 / VOC / presence / sit timer) | todo | 0.5 d |  |
-| 4. UI | Color-coded thresholds (green/amber/red) | todo | 0.25 d |  |
-| 4. UI | Alert overlay screen + buzzer when threshold crossed | todo | 0.25 d |  |
-| 5. Touch | XPT2046 driver on shared SPI (T_CS 42, T_IRQ 45) | todo | 0.5 d | Lib: `PaulStoffregen/XPT2046_Touchscreen` |
-| 5. Touch | Touch calibration routine stored in NVS | todo | 0.25 d |  |
-| 5. Touch | Tap-to-dismiss alerts, settings screen for thresholds | todo | 0.25 d |  |
-| 6. Hardening | Watchdog timer + brown-out detector check | todo | 0.5 d |  |
-| 6. Hardening | Crash/reboot log to NVS | todo | 0.25 d |  |
-| 6. Hardening | Battery-voltage read + low-battery alert (if PMIC exposes ADC) | todo | 0.25 d |  |
+### Phase 0 — Skeleton
 
-**Module 1 subtotal: ~10 days.** Output: working desk guardian, no network, no cloud.
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 0.1 Create `apps/firmware/` PlatformIO project, board `esp32-s3-devkitc-1`, framework `arduino` | done | 0.5 d | `platformio.ini`, `.gitignore`, `secrets.h.example`, `README.md` written |
+| 0.2 Configure PSRAM `qio_opi`, 16 MB partition | done |  | `board_build.arduino.memory_type=qio_opi`, `default_16MB.csv` |
+| 0.3 RGB smoke test on GPIO 48 | done |  | Verified on hardware 2026-05-24: PSRAM 8388608 detected, heap stable, R→G→B cycle visible. See log in chat history. |
+
+**Goal:** confirm toolchain, flash, PSRAM, on-board WS2812 LED, CH343P serial.
+
+**Key files:**
+- `apps/firmware/platformio.ini`
+- `apps/firmware/src/main.cpp`
+- `apps/firmware/include/secrets.h.example`
+- `apps/firmware/README.md`
+
+**Acceptance (met):** Serial shows `flash size: 16777216`, `psram size: 8388608`. On-board RGB cycles R→G→B every 1 s. Heartbeat log every 10 s, heap stays >300 KB.
+
+---
+
+### Phase 1 — Display foundation
+
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 1.1 Wire ILI9488 to ESP per `docs/system/README.md` §4 — SCK 12, MOSI 11, MISO 13, CS 21, DC 10, RST 47, BL 14 | done | 0.25 d | Wired 2026-05-24 |
+| 1.2 Add TFT_eSPI to `lib_deps`, create `apps/firmware/src/User_Setup.h` with ILI9488 + ESP32-S3 pin map | done | 0.5 d | Verified 2026-05-24. SPI @ 27 MHz, no corruption |
+| 1.3 Smoke test: `tft.fillScreen(TFT_RED)` → green → blue with 1 s interval | done | 0.25 d | Verified 2026-05-24. R→G→B fills visible, no artifacts |
+| 1.4 SPI clock — start 27 MHz, raise to 40 MHz if stable | done | 0.25 d | 40 MHz stable, no artifacts. Confirmed 2026-05-24 |
+| 1.5 Build `Screen` base class + `HomeScreen` skeleton (placeholder text) | done | 0.25 d | Verified: title "Desk Guardian" + heap/PSRAM/uptime stats display correctly |
+| 1.6 Render loop in `loop()` at ~10 Hz, only redraw dirty regions | done | 0.25 d | Stats update every 1 s, no flicker. Heap stable at 360 KB |
+| 1.7 Backlight control on GPIO 14 — start always-on, prep for PWM later | done | 0.1 d | Backlight active HIGH confirmed working |
+
+**Goal:** ILI9488 wired, driven by TFT_eSPI, render loop in place, "Hello" placeholder visible.
+
+**Key files (created):**
+- `apps/firmware/src/User_Setup.h` — TFT_eSPI config for ILI9488 + S3 pins
+- `apps/firmware/src/ui/Screen.h` — base class with dirty-flag pattern
+- `apps/firmware/src/ui/HomeScreen.{h,cpp}` — placeholder: title + heap/PSRAM/uptime stats
+- `apps/firmware/src/main.cpp` — TFT init, smoke test, render loop, backlight
+
+**Acceptance:** boot shows red→green→blue full-screen fills, then HomeScreen text. No SPI corruption. Heap still >250 KB after init.
+
+**Risk notes:**
+- ILI9488 module from nshopvn.com may need `TFT_BL` active-HIGH (some clones are inverted).
+- If RST stays low → display blanks. Confirm GPIO 47 actually wired to RST pin.
+- TFT_eSPI is picky about `User_Setup.h` discovery — must use the project-local include flag pattern, NOT edit the lib's vendored file.
+
+---
+
+### Phase 2 — Sensor drivers (one at a time)
+
+Order chosen to build confidence: easiest first.
+
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 2.1 BH1750 (I2C @ 0x23, SDA 8, SCL 9). Add `claws/BH1750` lib. Print lux to TFT debug screen. | done | 0.5 d | Verified 2026-05-24. I2C scan confirms 0x23. Lux reads on TFT + serial |
+| 2.2 BME680 (I2C @ 0x77). Add `adafruit/Adafruit BME680 Library` + Adafruit Unified Sensor. Read T/RH/pressure/gas resistance. | done | 0.5 d | Verified 2026-05-24. Board SDO=HIGH → addr 0x77 (not 0x76). T/RH/P/gas on TFT. Gas warmup 5-20 min. **Note:** I2C intermittent — sometimes not detected on scan. Wiring/loose connection suspected. |
+| 2.3 PIR (GPIO 6 digital input). | skip | — | Skipped — LD2410C radar covers motion + presence detection. PIR adds no value over mmWave |
+| 2.4a LD2410C radar (UART2 @ 256000 baud, 5V). | blocked | 1 d | Driver written (`sensors/ld2410c.{h,cpp}`), **parked** — zero UART data on bench. Wiring issue suspected. `ncmreynolds/ld2410` lib has swapped fields — driver compensates. Code kept for future use. |
+| 2.4b LD2410S radar (UART2 @ 115200 baud, **3.3V**, GPIO 15 TX, 16 RX, OT2 GPIO 4). Raw minimal frame parser, no library. | done | 0.5 d | Driver written (`sensors/ld2410s.{h,cpp}`). Parses minimal 5-byte frames `6E [state] [dist_lo] [dist_hi] 62` (factory default). OT2 digital pin for instant presence. 2-state model: PRESENT (someone + dist ≤150cm) / ABSENT. Distance smoothed (5-sample moving average). Verified on hardware — frames parsing, distance + state on screen. |
+| 2.5 ACD1200 CO2 (UART1 @ 1200 baud, GPIO 17 TX, 18 RX **via BSS138**). Custom driver `acd1200.{h,cpp}`. SET pin = GND for UART mode. | done | 1 d | Verified 2026-05-27. Aosong custom protocol (NOT Modbus). CMD: FE A6 00 01 A7, 9-byte reply, CO2 = D1×256+D2. BSS138 wired with user's board labels (AVCC/BVCC). 120s preheat tracked. Reads CO2 ppm on TFT |
+| 2.6 Buzzer (GPIO 41). PWM tone test, single beep. | todo | 0.25 d | `ledcAttach(41, 4000, 8)` etc. Will integrate with AlertScreen |
+
+**Layout convention:** each sensor in its own module under `apps/firmware/src/sensors/<name>.{h,cpp}` exposing a common shape:
+
+```cpp
+struct Reading { /* sensor-specific fields */ bool ok; uint32_t at_ms; };
+class Bh1750Sensor {
+public:
+  bool begin();
+  Reading read();
+};
+```
+
+**Acceptance per sensor:** values displayed on a debug TFT screen, updated every 1 s, looks sane against a phone lux app / breath test / hand wave.
+
+**Risk notes:**
+- I2C bus pull-ups: BH1750 + BME680 modules normally include them. If both pulled up → fine. If only one → still fine. If neither → add 4.7 kΩ to 3V3.
+- ACD1200: 5 V TX MUST go through BSS138 before ESP RX (GPIO 18). Wrong wiring → fried ESP pin.
+- LD2410C must be wired to UART2 (Serial2), not USB UART. Set `Serial2.begin(256000, SERIAL_8N1, 16, 15)`.
+
+---
+
+### Phase 3 — Presence + reminder FSM
+
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 3.1 Presence FSM: 2-state `PRESENT` / `ABSENT` from radar | done | 0.5 d | Simplified to binary. ScreenFsm uses PRESENT/ABSENT only. No moving/stationary distinction. `radar_types.h` PresenceState enum |
+| 3.2 Sitting timer — accumulate seconds while PRESENT | done | 0.25 d | In ScreenFsm: `_sitAccumMs` accumulates via delta-time while present. Away >10s resets countdown. Away >60s→SUMMARY. Away >5min→SLEEP |
+| 3.3 Stand-up reminder trigger when countdown reaches 0 | done | 0.25 d | Default 45 min → ACTIVE→ALERT transition. AlertScreen shows "Stand up!" with pulse animation |
+| 3.4 Hydration timer + nudge | todo | 0.25 d | Default 60 min while present. Not yet implemented |
+| 3.5 Thresholds in NVS (Preferences API): `co2_max`, `lux_min`, `lux_max`, `sit_minutes`, `hydrate_minutes` | todo | 0.25 d | Currently hardcoded in ScreenFsmConfig. NVS storage deferred to hardening phase |
+| 3.6 Reminder dispatcher: any rule fires → buzz + AlertScreen | done | 0.25 d | ScreenFsm transitions drive screen switch. Alert auto-dismisses on movement or 30s timeout. Buzzer integration pending (2.6) |
+
+**Key files:**
+- `apps/firmware/src/logic/ScreenFsm.{h,cpp}` — 4-state machine (ACTIVE/ALERT/SUMMARY/SLEEP)
+- `apps/firmware/src/ui/AlertScreen.{h,cpp}` — full-screen pulsing reminder
+
+**Acceptance:** sit at desk → countdown runs from 45:00 down → reaches 0 → AlertScreen fires. Return presence → dismissed back to ACTIVE. Walk away >10s → countdown resets. Away >60s → SummaryScreen. Away >5min → SLEEP (backlight off). Any presence → wakes to ACTIVE.
+
+---
+
+### Phase 4 — UI polish
+
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 4.1 ActiveScreen — clock-left + env-right layout (480×320) | done | 0.5 d | Left: countdown MM:SS + "of 45 min" + status pill (Active/Away). Right: 6 env rows (Radar+dist, Light, Temp, Humidity, CO2, Air). Footer: pressure + sitting time. Dirty-region redraws |
+| 4.2 Color-code each value by threshold (green / amber / red) | done | 0.25 d | Lux <200 orange, >400 yellow. CO2 >800 yellow, >1000 red. Countdown <10m yellow, <2m red |
+| 4.3 SummaryScreen — 3×2 env cards when absent | done | 0.25 d | Centered cards: Light, Temp, Humidity, CO2, Air, Pressure. "Away" header. No countdown |
+| 4.4 AlertScreen — full-screen "Stand up!" with pulse animation | done | 0.25 d | Pulses red/orange every 800ms. Exclamation circle + sitting duration + "Move to dismiss" hint |
+| 4.5 Theme system — shared colors + fonts across all screens | done | 0.1 d | `Theme.h`: RGB565 palette, FreeFonts via extern declarations (not Free_Fonts.h — PlatformIO path issue) |
+| 4.6 SLEEP mode — backlight off on GPIO 14 when absent >5 min | done | 0.1 d | `switchScreen()` in main.cpp controls backlight. Any presence → wake |
+
+---
+
+### Phase 5 — Touch (Stage B)
+
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 5.1 Wire XPT2046 (shares SPI: SCK 12, MOSI 11, MISO 13). T_CS 42, T_IRQ 45. | todo | 0.25 d |  |
+| 5.2 Add `PaulStoffregen/XPT2046_Touchscreen` lib | todo | 0.1 d |  |
+| 5.3 Calibration routine — touch 4 corners → save to NVS | todo | 0.5 d |  |
+| 5.4 Tap-to-dismiss alerts | todo | 0.25 d |  |
+| 5.5 Settings screen — adjust thresholds via touch | todo | 0.5 d |  |
+| 5.6 Swipe between home / detail / settings | todo | 0.25 d |  |
+
+---
+
+### Phase 6 — Hardening
+
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 6.1 Watchdog timer (esp_task_wdt) on main loop | todo | 0.25 d | Reset on hang |
+| 6.2 Brown-out detector verified | todo | 0.1 d | Default fine, verify panic on under-voltage |
+| 6.3 Crash log to NVS (last reset reason + last loop tick) | todo | 0.25 d |  |
+| 6.4 Battery voltage read (if BQ24074 exposes ADC or via divider on Vbat) | todo | 0.5 d | Optional |
+| 6.5 Low-power: dim backlight after N min idle | todo | 0.25 d | LEDC PWM on GPIO 14 |
 
 ---
 
 ## Module 2 — Shared schemas package
 
-| Phase | Step | Status | Est. | Notes |
-| ----- | ---- | ------ | ---- | ----- |
-| S.1 | `packages/schemas` workspace package, TypeScript + JSON Schema source of truth | todo | 0.5 d | Used by server + web; firmware reads JSON Schema manually |
-| S.2 | Define telemetry payload schema (env_v1) | todo | 0.25 d | Fields: ts, node_id, lux, t_c, rh, pressure, gas_ohm, co2_ppm, hcho_ppb?, presence_state, sit_seconds |
-| S.3 | Define `hello` + `cmd/*` schemas | todo | 0.25 d |  |
-
-**Subtotal: ~1 day.**
-
----
-
-## Module 3 — ESP-to-RPi link (additive)
-
-| Phase | Step | Status | Est. | Notes |
-| ----- | ---- | ------ | ---- | ----- |
-| 7. WiFi | STA mode connect to `DG-<mac>` AP, creds from `secrets.h` initially | todo | 0.5 d | Hardcoded for bench |
-| 7. WiFi | Status bar shows WiFi state on TFT | todo | 0.25 d |  |
-| 8. MQTT | PubSubClient (or arduino-mqtt) client, broker host/port/user/pass from NVS | todo | 0.5 d |  |
-| 8. MQTT | Publish `dg/<node>/telemetry/env` every 10 s using schema | todo | 0.5 d |  |
-| 8. MQTT | Retained `dg/<node>/hello` on boot | todo | 0.25 d |  |
-| 8. MQTT | Subscribe `dg/<node>/cmd/factory_reset` → NVS wipe + reboot | todo | 0.25 d |  |
-| 9. BLE prov | BLE provisioning via `WiFiProv.h` (Arduino wrapper) — replaces hardcoded creds | todo | 1 d | Provision pop, app or web BLE pairing |
-
-**Subtotal: ~3.5 days.**
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| S.1 Create `packages/schemas` workspace package: `pnpm init`, name `@dsk/schemas`, TS + zod | done | 0.5 d | CJS output (NestJS compat). zod validation + TS types |
+| S.2 Define `EnvTelemetry` schema (v1) | done | 0.25 d | `telemetry.ts` — all sensor fields + presence + sit_seconds |
+| S.3 Define `Hello` + `Cmd.FactoryReset` + `Cmd.Config` + `Device` schemas | done | 0.25 d | `hello.ts`, `commands.ts`, `device.ts` + DTOs |
+| S.4 Export TS types + MQTT topic builders | done | 0.25 d | `mqtt-topics.ts` — topic functions + subscription wildcards. JSON Schema export deferred (not needed yet) |
 
 ---
 
-## Module 4 — Raspberry Pi 5 gateway infra
+## Module 3 — ESP → RPi link (additive on top of Module 1)
 
-| Phase | Step | Status | Est. | Notes |
-| ----- | ---- | ------ | ---- | ----- |
-| G.0 | Pi 5 base: Bookworm 64-bit on NVMe, headless, SSH | blocked | 0.5 d | Need Pi on bench |
-| G.1 | `infrastructure/mosquitto/` — broker config + per-node ACL files | todo | 0.5 d |  |
-| G.2 | `infrastructure/postgres/` — Docker compose with TimescaleDB image, init script for hypertables | todo | 0.5 d | `timescale/timescaledb:latest-pg16` |
-| G.3 | `hostapd + dnsmasq` to expose `DG-<mac>` AP on wlan0 | todo | 1 d | Dual-radio path optional |
-| G.4 | `infrastructure/caddy/` — reverse proxy config (web + API + WS) | todo | 0.5 d |  |
-| G.5 | Grafana container (optional) pointed at Postgres | todo | 0.25 d | Skip if not needed |
-
-**Subtotal: ~3 days.**
-
----
-
-## Module 5 — NestJS backend
-
-| Phase | Step | Status | Est. | Notes |
-| ----- | ---- | ------ | ---- | ----- |
-| B.0 | Scaffold `apps/server` NestJS project in pnpm workspace | todo | 0.5 d |  |
-| B.1 | Postgres + Timescale connection (TypeORM or Prisma); migrations for `devices` + telemetry hypertable | todo | 1 d | Pick ORM — open question |
-| B.2 | MQTT subscriber module via `@nestjs/microservices` | todo | 0.5 d | Subscribe `dg/+/telemetry/env`, validate against schema |
-| B.3 | Persist telemetry to Timescale hypertable | todo | 0.5 d |  |
-| B.4 | Device registry REST: list / approve / rename / remove | todo | 1 d | Triggers Mosquitto ACL writes + `cmd/factory_reset` publish |
-| B.5 | WebSocket gateway pushing live telemetry to web | todo | 0.5 d | `@nestjs/websockets` (socket.io) |
-| B.6 | Threshold config REST (read/write per device) | todo | 0.5 d | Pushes config back over MQTT `dg/<node>/cmd/config` |
-| B.7 | BLE bridge for provisioning (Pi side advertises/scans) | todo | 1.5 d | Or skip — provision via phone BLE app |
-
-**Subtotal: ~5.5 days.**
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| 7.1 WiFi STA connect to `DG-<mac>` AP, creds from `secrets.h` (gitignored). Status on TFT status bar. | todo | 0.5 d | Bench dev — hardcoded |
+| 7.2 NTP sync after WiFi up | todo | 0.1 d | For timestamp in telemetry payload |
+| 7.3 MQTT client (`PubSubClient` or `arduino-mqtt`), broker host/port/user/pass from NVS | todo | 0.5 d |  |
+| 7.4 Publish `dg/<node>/telemetry/env` every 10 s, JSON matching schema | todo | 0.5 d |  |
+| 7.5 Retained `dg/<node>/hello` on boot with fw_version + chip info | todo | 0.25 d |  |
+| 7.6 Subscribe `dg/<node>/cmd/factory_reset` → NVS erase + reboot | todo | 0.25 d |  |
+| 7.7 Subscribe `dg/<node>/cmd/config` → update thresholds in NVS, ack via hello | todo | 0.25 d |  |
+| 7.8 BLE provisioning via `WiFiProv.h` — replaces hardcoded creds | todo | 1 d | Final step before shipping. Until then bench dev uses `secrets.h` |
 
 ---
 
-## Module 6 — Next.js web dashboard
+## Module 4 — Raspberry Pi gateway infra
 
-| Phase | Step | Status | Est. | Notes |
-| ----- | ---- | ------ | ---- | ----- |
-| W.0 | Strip Next.js starter page in `apps/web` | todo | 0.25 d |  |
-| W.1 | Layout shell + auth-free local dashboard | todo | 0.5 d | Single-user, local network |
-| W.2 | Live dashboard page: tiles, WebSocket subscription | todo | 1.5 d |  |
-| W.3 | Device management page: list, approve pending, rename, remove | todo | 1 d |  |
-| W.4 | Threshold config page per device | todo | 0.5 d |  |
-| W.5 | History charts (1h / 24h / 7d) from Postgres via NestJS API | todo | 1 d |  |
-
-**Subtotal: ~4.75 days.**
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| G.1 Pi 5 OS install — Bookworm 64-bit, NVMe boot, SSH | todo | 0.5 d | Pi on bench, deploy later |
+| G.2 `infrastructure/mosquitto/` Docker compose + per-node ACL file template | done | 0.5 d | `docker-compose.yml` + `mosquitto.conf` + `acl` + `passwd` (generated). Dev: dg_server + node1 accounts |
+| G.3 `infrastructure/postgres/` Docker compose with TimescaleDB + init SQL | done | 0.5 d | `init.sql`: devices table + telemetry hypertable + indexes. 90-day retention + 5-min rollup commented out |
+| G.4 Wi-Fi AP: `hostapd + dnsmasq` on wlan0, SSID `DG-<mac>` | todo | 1 d | Deferred to Pi deploy phase |
+| G.5 `infrastructure/caddy/` reverse proxy: web + API + WS on single port | done | 0.5 d | Caddyfile: /api/* + /socket.io/* → :4000, else → :3000 |
+| G.6 Grafana container (optional) pointing at Postgres | skip | 0.25 d | Skipped — keep stack minimal |
 
 ---
 
-## Grand total (rough)
+## Module 5 — NestJS backend (`apps/server`)
 
-| Group | Days |
-| ----- | ---- |
-| ESP standalone (Module 1) | ~10 |
-| Schemas (Module 2) | ~1 |
-| ESP↔RPi link (Module 3) | ~3.5 |
-| Pi infra (Module 4) | ~3 |
-| NestJS (Module 5) | ~5.5 |
-| Web (Module 6) | ~4.75 |
-| **Total** | **~28 days part-time** |
-
----
-
-## Open decisions to resolve before Module 4+
-
-- ORM for NestJS — Prisma or TypeORM? (Prisma cleaner, TypeORM more native to NestJS.)
-- BLE provisioning UX — phone app, Pi-side scan, or web BLE in browser?
-- Grafana in or out?
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| B.1 Scaffold `apps/server` with NestJS CLI | done | 0.5 d | NestJS 11, port 4000, unused app.controller/service removed by user |
+| B.2 TypeORM setup + pg driver + data-source config | done | 0.5 d | `@nestjs/typeorm` + `typeorm` + `pg`. `env.config.ts` with `IEnvConfig` interface. `synchronize: false` — tables from init.sql |
+| B.3 Entity definitions: DeviceEntity + TelemetryEntity | done | 0.5 d | `entities/` folder. Telemetry = hypertable (created by init.sql, not TypeORM). |
+| B.4 MQTT subscriber (`mqtt` npm package) on `dg/+/telemetry/env` + `dg/+/hello` | done | 0.5 d | `mqtt/mqtt-subscriber.service.ts` — connects, subscribes, routes to telemetry/device services. Has `publish()` for cmd topics |
+| B.5 Persist telemetry to hypertable + update device last_seen | done | 0.5 d | `telemetry/telemetry.service.ts` — zod validate → save row → update device → WS broadcast |
+| B.6 Device registry REST: list / approve / rename / remove | done | 1 d | `devices/` module. Hello handler auto-creates pending device. Approve sets name + active. Remove = soft delete |
+| B.7 WebSocket gateway (socket.io) pushing live telemetry to web | done | 0.5 d | `telemetry/telemetry.gateway.ts` — `/telemetry` namespace, `ServerToClientEvents` typed |
+| B.8 Threshold config REST → publish to `dg/<node>/cmd/config` | done | 0.5 d | POST /api/devices/:id/config — validates via ConfigCmdSchema, publishes MQTT. forwardRef wiring done |
+| B.9 BLE bridge for provisioning (Pi side) | todo | 1.5 d | Or skip and use phone BLE app |
 
 ---
 
-## Devices/parts to verify on bench before Phase 1
+## Module 6 — Next.js dashboard (`apps/web`)
 
-- BSS138 wired between ACD1200 TX (5V) and ESP GPIO 18 (3V3 RX).
-- Common GND across all sensors + ESP.
-- CH343P driver installed on dev machine.
-- 3V3 vs 5V rails verified with multimeter before plugging.
+Detailed build plan: `docs/system/dashboard.md`
+
+| Step | Status | Est. | Notes |
+| ---- | ------ | ---- | ----- |
+| W.0 Foundation: strip starter, deps, API client, WS hook, layout shell | todo | 1 d | shadcn, socket.io-client, @dsk/schemas, lib/api.ts, lib/socket.ts |
+| W.1 Live dashboard: device tiles + real-time WS + quality badges | todo | 1.5 d | Match firmware quality thresholds |
+| W.2 Device management: list, approve pending, rename, remove | todo | 1 d |  |
+| W.3 Threshold config: per-device form → MQTT push | todo | 0.5 d |  |
+| W.4 History charts: CO2/temp/humidity/lux over 1h/24h/7d | todo | 1 d | Recharts |
+| W.5 Polish: responsive, dark mode, loading, errors | todo | 0.5 d |  |
+
+---
+
+## Open decisions
+
+| # | Question | Blocking | Default if not decided |
+| - | -------- | -------- | ---------------------- |
+| 1 | ~~Prisma vs TypeORM~~ → **TypeORM locked** | — | TypeORM (decided 2026-05-28) |
+| 2 | BLE provisioning UX — phone app, web BLE in browser, or Pi-side BLE? | Module 3.8 & Module 5.9 | Phone app (Espressif BLE Prov) |
+| 3 | ~~Grafana in or out?~~ → **Out** (decided 2026-05-28) | — | — |
+| 4 | NTP source on isolated AP | Module 3.2 | RPi runs `chrony` serving local time |
+
+---
+
+## Pre-flight checks before each phase
+
+Before any new wiring:
+1. Power off ESP (unplug USB).
+2. Cross-check pin assignment against `docs/system/README.md` §4.
+3. Confirm 3V3 vs 5V on the sensor module before powering.
+4. Common GND across all modules.
+
+Before any firmware flash:
+1. `pio device list` shows the CH343P serial port.
+2. Close other terminals holding the serial port.
+3. If auto-reset fails: hold BOOT, tap RESET.
+
+---
+
+## Project file map (current)
+
+```
+dsk-guard/
+├── CLAUDE.md                       # project rules (loaded into every chat)
+├── package.json                    # root scripts (turbo + pnpm)
+├── pnpm-workspace.yaml             # apps/web, apps/server, packages/*
+├── turbo.json                      # task graph
+├── apps/
+│   ├── web/                        # Next.js 16, Tailwind v4 (not started)
+│   └── firmware/                   # PlatformIO, Arduino-ESP32
+│       ├── platformio.ini
+│       ├── include/secrets.h.example
+│       ├── README.md
+│       ├── test/
+│       │   ├── ld2410s_uno_r4_test.ino  # UNO R4 WiFi test sketch for LD2410S
+│       │   └── ld2410c_uno_r4_test.ino  # UNO R4 WiFi test sketch for LD2410C
+│       └── src/
+│           ├── main.cpp            # setup/loop, FSM driver, screen switching, backlight
+│           ├── User_Setup.h        # TFT_eSPI config (ILI9488 + S3 pins, 40 MHz SPI)
+│           ├── sensors/
+│           │   ├── radar_types.h   # shared PresenceState (PRESENT/ABSENT) + RadarReading
+│           │   ├── bh1750.{h,cpp}  # I2C lux sensor
+│           │   ├── bme680.{h,cpp}  # I2C T/RH/P/VOC
+│           │   ├── ld2410s.{h,cpp} # UART2 mmWave radar (ACTIVE — minimal frame 6E..62, OT2, 115200, 3.3V)
+│           │   ├── ld2410c.{h,cpp} # UART2 mmWave radar (PARKED — hardware issue, excluded from build)
+│           │   └── acd1200.{h,cpp} # UART1 CO2 (custom Aosong protocol)
+│           ├── logic/
+│           │   └── ScreenFsm.{h,cpp} # 4-state screen FSM (ACTIVE/ALERT/SUMMARY/SLEEP), 2-state presence
+│           └── ui/
+│               ├── Screen.h        # base class (begin/update/dirty)
+│               ├── Theme.h         # shared colors (RGB565), fonts, layout constants
+│               ├── ActiveScreen.{h,cpp}   # countdown + env rows + radar dist (person present)
+│               ├── AlertScreen.{h,cpp}    # "Stand up!" pulsing reminder
+│               ├── SummaryScreen.{h,cpp}  # 3×2 env cards (person absent)
+│               └── HomeScreen.{h,cpp}     # legacy card dashboard (replaced, can delete)
+│   ├── server/                     # NestJS 11 backend (port 4000)
+│   │   ├── src/
+│   │   │   ├── main.ts             # bootstrap, port 4000, CORS
+│   │   │   ├── app.module.ts       # root: ConfigModule + TypeORM + feature modules
+│   │   │   ├── config/env.config.ts  # DB + MQTT env config + IEnvConfig interface
+│   │   │   ├── entities/
+│   │   │   │   ├── device.entity.ts    # devices table (TypeORM)
+│   │   │   │   └── telemetry.entity.ts # telemetry hypertable (TypeORM mapping only)
+│   │   │   ├── devices/
+│   │   │   │   ├── devices.module.ts
+│   │   │   │   ├── devices.service.ts  # CRUD + hello handler
+│   │   │   │   └── devices.controller.ts # REST /api/devices
+│   │   │   ├── telemetry/
+│   │   │   │   ├── telemetry.module.ts
+│   │   │   │   ├── telemetry.service.ts  # validate + persist + query
+│   │   │   │   ├── telemetry.controller.ts # REST /api/telemetry/:nodeId
+│   │   │   │   └── telemetry.gateway.ts   # WebSocket (socket.io /telemetry)
+│   │   │   └── mqtt/
+│   │   │       ├── mqtt.module.ts
+│   │   │       └── mqtt-subscriber.service.ts # MQTT client, subscribe + publish
+│   │   └── package.json
+├── packages/
+│   └── schemas/                    # @dsk/schemas (CJS, zod)
+│       ├── src/
+│       │   ├── index.ts            # barrel export
+│       │   ├── telemetry.ts        # EnvTelemetry schema
+│       │   ├── hello.ts            # Hello beacon schema
+│       │   ├── commands.ts         # FactoryReset + Config cmd schemas
+│       │   ├── device.ts           # Device + DTOs
+│       │   └── mqtt-topics.ts      # topic builders + subscription wildcards
+│       ├── tsconfig.json           # CJS output, moduleResolution: node
+│       └── package.json
+├── infrastructure/
+│   ├── docker-compose.yml          # Mosquitto + Postgres/TimescaleDB + Caddy
+│   ├── mosquitto/
+│   │   ├── mosquitto.conf          # listeners, auth, persistence
+│   │   ├── acl                     # per-node ACL (dg_server + node1)
+│   │   ├── passwd                  # hashed passwords (generated)
+│   │   └── README.md               # setup instructions
+│   ├── postgres/
+│   │   └── init.sql                # devices table + telemetry hypertable + indexes
+│   └── caddy/
+│       └── Caddyfile               # reverse proxy: API→4000, web→3000
+├── docs/
+│   ├── system/
+│   │   ├── README.md               # full spec
+│   │   ├── planning.md             # ← this file
+│   │   └── api.md                  # backend API reference (REST + WS + MQTT)
+│   └── hardware/
+│       ├── README.md               # datasheet index
+│       └── wire.md                 # complete wiring reference (board pin labels)
+```
+
+---
+
+## Memory pointers (auto-loaded)
+
+If your chat agent has the project memory system:
+- `user_role.md` — Huy's collaboration style
+- `project_dskguard_stack.md` — locked tech decisions
+- `MEMORY.md` — index

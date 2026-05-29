@@ -1,0 +1,25 @@
+# dsk-guard — Caddy reverse proxy
+# Local dev: http only (no TLS on localhost / LAN IP).
+# On Pi AP: will use self-signed or Let's Encrypt if internet available.
+
+:80 {
+	# Next.js dashboard (dev server or static build)
+	handle /api/* {
+		reverse_proxy host.docker.internal:4000
+	}
+
+	# WebSocket (socket.io from NestJS)
+	handle /socket.io/* {
+		reverse_proxy host.docker.internal:4000
+	}
+
+	# Everything else → Next.js web app
+	handle {
+		reverse_proxy host.docker.internal:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
