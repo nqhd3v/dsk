@@ -20,7 +20,8 @@
 
 #include "sensors/bh1750.h"
 #include "sensors/bme680.h"
-#include "sensors/ld2410s.h"
+#include "sensors/ld2450.h"   // active radar (LD2450, 5V, 256000 baud, multi-target)
+// #include "sensors/ld2410s.h"  // parked — replaced by LD2450, kept for future
 // #include "sensors/ld2410c.h"  // parked — hardware issue, kept for future
 #include "sensors/acd1200.h"
 
@@ -44,7 +45,7 @@ static constexpr uint8_t PIN_RGB       = 48;
 static constexpr uint8_t PIN_BACKLIGHT = 14;
 static constexpr uint8_t PIN_SDA       = 8;
 static constexpr uint8_t PIN_SCL       = 9;
-static constexpr uint8_t PIN_RADAR_OT2 = 4;   // LD2410S OT2 digital presence (HIGH=someone)
+static constexpr uint8_t PIN_RADAR_OT2 = 4;   // LD2410S OT2 (unused with LD2450 — no OT2 pin)
 
 // ----- Timing -----
 static constexpr uint32_t RENDER_INTERVAL_MS  = 20;     // ~50 Hz
@@ -62,7 +63,8 @@ Adafruit_NeoPixel rgb(1, PIN_RGB, NEO_GRB + NEO_KHZ800);
 
 Bh1750Sensor    luxSensor;
 Bme680Sensor    envSensor;
-Ld2410sSensor   radarSensor;
+Ld2450Sensor    radarSensor;
+// Ld2410sSensor   radarSensor;  // parked — replaced by LD2450
 // Ld2410cSensor   radarSensor;  // parked — LD2410C hardware issue
 Acd1200Sensor   co2Sensor;
 
@@ -213,14 +215,13 @@ static void readSensors() {
                       (unsigned long)sensors.env.gas_ohm);
     {
         if (sensors.radar.ok) {
-            Serial.printf("[LD2410S] %s dist=%ucm raw=%ucm raw_st=%u ot2=%d\n",
+            Serial.printf("[LD2450] %s dist=%ucm raw=%ucm targets=%u\n",
                           sensors.radar.state == PresenceState::PRESENT ? "PRESENT" : "ABSENT",
                           sensors.radar.distance_cm,
                           sensors.radar.raw_distance_cm,
-                          sensors.radar.raw_state,
-                          sensors.radar.ot2 ? 1 : 0);
+                          sensors.radar.raw_state);
         } else {
-            Serial.printf("[LD2410S] NO DATA (frames=%lu uart_avail=%d)\n",
+            Serial.printf("[LD2450] NO DATA (frames=%lu uart_avail=%d)\n",
                           (unsigned long)radarSensor.frameCount(),
                           radarSensor.uartAvailable());
         }
@@ -349,7 +350,7 @@ static void publishTelemetry() {
         doc["co2_ppm"] = nullptr;
     doc["co2_preheating"] = sensors.co2.preheating;
 
-    // LD2410S
+    // LD2450
     doc["presence"] = (sensors.radar.ok && sensors.radar.state == PresenceState::PRESENT)
                       ? "PRESENT" : "ABSENT";
     if (sensors.radar.ok && sensors.radar.state == PresenceState::PRESENT)
@@ -459,7 +460,7 @@ void setup() {
 
     // TFT
     tft.init();
-    tft.setRotation(1);
+    tft.setRotation(3);   // 180° from rot 1 (display mounted upside-down in box)
     tft.fillScreen(TFT_BLACK);
     Serial.printf("[TFT] Init OK. %dx%d\n", tft.width(), tft.height());
     tftSplash();
@@ -479,7 +480,8 @@ void setup() {
     // Sensors
     luxSensor.begin();
     envSensor.begin();
-    radarSensor.begin(Serial2, 16, 15, PIN_RADAR_OT2);
+    radarSensor.begin(Serial2, 16, 15);   // LD2450: no OT2 pin
+    (void)PIN_RADAR_OT2;
     co2Sensor.begin(Serial1);
 
     delay(200);

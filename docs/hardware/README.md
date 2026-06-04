@@ -5,7 +5,13 @@
 - HLK-LD2410C (5V, 256000 baud — PARKED, hardware issue):
   - `/docs/hardware/HLK LD2410C Life Presence Sensor Module Data Sheet V1.00.pdf`
   - `/docs/hardware/HLK-LD2410C Serial communication protocol V1.07.pdf`
-- HLK-LD2410S (3.3V, 115200 baud — ACTIVE):
+- HLK-LD2450 (5V power / 3.3V IO, 256000 baud — **ACTIVE**, 1T2R motion target tracking):
+  - `/docs/hardware/HLK-LD2450  1t2r motion target detection and tracking module manual  v1.00.pdf`
+  - Frame: `AA FF 03 00 [3×8B targets] 55 CC` (30 bytes, 10 fps). Per target: X(int16), Y(int16), speed(int16 cm/s), distRes(uint16 mm).
+  - Sign-magnitude encoding for X/Y/speed: highest bit 1 → positive `(raw & 0x7FFF)`, 0 → negative `-(raw)`.
+  - Distance = sqrt(x²+y²). Up to 3 targets. Range 6m, azimuth ±60°, pitch ±35°. **No OT2 pin.**
+  - Driver: `apps/firmware/src/sensors/ld2450.{h,cpp}` (raw parser, no external lib).
+- HLK-LD2410S (3.3V, 115200 baud — PARKED, replaced by LD2450):
   - `/docs/hardware/HLK-LD2410S User manual-V1.3.pdf`
   - `/docs/hardware/HLK-LD2410S serial communication protocol-V1.00.pdf`
   - Default output: **minimal frame** `6E [state] [dist_lo] [dist_hi] 62` (5 bytes). Standard frame (F4F3F2F1) requires cmd 0x007A.

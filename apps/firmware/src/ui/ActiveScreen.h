@@ -37,6 +37,7 @@ private:
     uint32_t _thresholdSec = 0;
     uint32_t _sittingSec   = 0;
     uint32_t _lastRemainMin = 0xFFFF;
+    uint32_t _lastRemainSec = 0xFFFFFFFF;
     bool     _countdownDirty = false;
 
     char     _statusText[24] = "Active";

@@ -65,8 +65,7 @@ export function DashboardClient({ nodeId }: DashboardClientProps) {
   const present = telemetry?.presence === "PRESENT";
   const sittingMinutes = telemetry ? Math.floor(telemetry.sit_seconds / 60) : 0;
 
-  const co2Elevated =
-    sensorData !== null && sensorData.co2 > thresholds.co2Max;
+  const co2Elevated = sensorData !== null && sensorData.co2 > thresholds.co2Max;
   const co2Preheating = telemetry?.co2_preheating ?? false;
 
   const online = device?.status === "active";
@@ -76,13 +75,13 @@ export function DashboardClient({ nodeId }: DashboardClientProps) {
       <AppHeader nodeId={nodeId} online={online} />
 
       <main className="flex-1 p-5 pb-10">
-        <div className="grid grid-cols-[1fr_260px] gap-5 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_260px] gap-5 max-w-6xl mx-auto">
           {/* Left column */}
           <div className="flex flex-col gap-4">
             {sensorData ? (
               <SensorGrid data={sensorData} thresholds={thresholds} />
             ) : (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}

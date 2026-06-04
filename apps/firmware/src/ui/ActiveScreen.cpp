@@ -1,7 +1,7 @@
 // dsk-guard — ActiveScreen implementation
 // Left: HH:MM clock + countdown hint + [Active] pill + actionable suggestion
 // Right: 2×2 mini cards (Temp, Humidity, CO2, Air)
-// Footer: raw env | online dot
+// Footer: raw env | target distance (nearest) | online dot
 
 #include "ActiveScreen.h"
 #include <Arduino.h>
@@ -126,10 +126,12 @@ void ActiveScreen::setCountdown(uint32_t remainSec, uint32_t thresholdSec, uint3
     _thresholdSec = thresholdSec;
     _sittingSec   = sittingSec;
     uint32_t remainMin = _remainSec / 60;
-    if (remainMin != _lastRemainMin) {
-        _lastRemainMin = remainMin;
-        _countdownDirty = true;
-    }
+    bool dirty = false;
+    if (remainMin != _lastRemainMin) { _lastRemainMin = remainMin; dirty = true; }
+    // Final minute: tick every second so it doesn't sit on "0 min".
+    if (_remainSec < 60 && _remainSec != _lastRemainSec) dirty = true;
+    _lastRemainSec = _remainSec;
+    if (dirty) _countdownDirty = true;
 }
 
 void ActiveScreen::setStatus(const char *text, uint16_t color) {
@@ -192,6 +194,9 @@ void ActiveScreen::drawCountdownHint(TFT_eSPI &tft) {
     char hint[32];
     if (_remainSec == 0) {
         snprintf(hint, sizeof(hint), "Time to stand up!");
+        hintColor = Theme::RED;
+    } else if (_remainSec < 60) {
+        snprintf(hint, sizeof(hint), "Stand up in %lu s", (unsigned long)_remainSec);
         hintColor = Theme::RED;
     } else {
         snprintf(hint, sizeof(hint), "Stand up in %lu min", (unsigned long)remainMin);
@@ -375,8 +380,16 @@ void ActiveScreen::drawFooter(TFT_eSPI &tft) {
     p += n; rem -= n;
 
     if (_s.env.ok) {
-        snprintf(p, rem, " | %.1fC %.0f%% | %.0f hPa",
-                 _s.env.temp_c, _s.env.humidity, _s.env.pressure);
+        n = snprintf(p, rem, " | %.1fC %.0f%% | %.0f hPa",
+                     _s.env.temp_c, _s.env.humidity, _s.env.pressure);
+        p += n; rem -= n;
+    }
+
+    // Radar: distance to nearest target (only valid when present)
+    if (_s.radar.ok && _s.radar.state == PresenceState::PRESENT && _s.radar.distance_cm > 0) {
+        snprintf(p, rem, " | %u cm", _s.radar.distance_cm);
+    } else {
+        snprintf(p, rem, " | -- cm");
     }
 
     tft.setTextDatum(ML_DATUM);

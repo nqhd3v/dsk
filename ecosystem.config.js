@@ -18,24 +18,6 @@ module.exports = {
         NODE_ENV: "production",
         PORT: 3001,
       },
-      // Wait for Postgres + Mosquitto to be up before starting
-      // (handled by deploy script; PM2 will restart on crash regardless)
-    },
-    {
-      name: "dg-web",
-      cwd: "./apps/web",
-      script: "node",
-      args: ".next/standalone/apps/web/server.js",
-      interpreter: "none",
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "300M",
-      env: {
-        NODE_ENV: "production",
-        PORT: 3000,
-        HOSTNAME: "0.0.0.0",
-      },
     },
   ],
 };

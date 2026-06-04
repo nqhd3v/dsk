@@ -13,7 +13,7 @@ All connections for the ESP32-S3 MKE-K01 (N16R8) edge node.
 | Rail | Source | Feeds |
 |------|--------|-------|
 | 3V3 | ESP on-board LDO | BH1750, BME680, BSS138 A-side, ILI9488 VCC |
-| 5V | ESP USB 5V pin | ACD1200, LD2410C, BSS138 B-side |
+| 5V | ESP USB 5V pin | ACD1200, **LD2450**, LD2410C, BSS138 B-side |
 | GND | Common | **All modules share same GND** |
 
 ---
@@ -72,7 +72,36 @@ ESP GPIO 17 (TX) ─────────────────────
 
 ---
 
-## UART2 — LD2410S Radar (active)
+## UART2 — LD2450 Radar (active)
+
+> **In use.** Replaced LD2410S. LD2450 is a 1T2R motion-target *tracking* module:
+> reports X/Y position, speed and distance for up to 3 moving targets at 10 Hz.
+
+**⚠ LD2450 VCC = 5V (supply capacity >200 mA, avg 120 mA). IO level is 3.3V.**
+Power is 5V but the TX/RX signal lines are 3.3V — direct wire to ESP, **no level shifter needed**.
+
+| LD2450 Pin | ESP GPIO | Notes |
+|------------|----------|-------|
+| 5V | **5V** | Module power (NOT 3.3V) |
+| GND | **GND** | |
+| Rx | **GPIO 15** (ESP TX) | ESP TX is 3.3V → radar 3.3V IO, OK |
+| Tx | **GPIO 16** (ESP RX) | Radar TX is 3.3V — direct wire OK |
+
+**UART config:** 256000 baud, 8N1 (default, no parity, 1 stop).
+
+**Notes:**
+- No OT2 / digital presence pin on this module (only 5V / GND / Tx / Rx).
+- Must use Serial2 in firmware (`Serial2.begin(256000, SERIAL_8N1, 16, 15)`).
+- Frame: `AA FF 03 00 | 3×8B targets | 55 CC` (30 bytes). Per target X/Y/speed are
+  sign-magnitude int16 (bit15=1 → positive), distance resolution uint16 (mm).
+- Detection: azimuth ±60°, pitch ±35°, range 6 m. Driver: `src/sensors/ld2450.{h,cpp}` (raw parser, no lib).
+- Presence in firmware = ≥1 target with smoothed distance ≤ maxRangeCm (default 150 cm).
+
+---
+
+## UART2 — LD2410S Radar (parked — replaced by LD2450)
+
+> **Not in use.** Replaced by LD2450. Driver `src/sensors/ld2410s.{h,cpp}` kept for future re-use.
 
 **⚠ LD2410S VCC = 3.3V (3.0–3.6V). DO NOT connect to 5V — will damage the module!**
 

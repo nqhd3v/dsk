@@ -10,6 +10,7 @@
     "typecheck": "turbo typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "dev:web": "turbo dev --filter=web",
+    "start:web": "turbo dev --filter=web",
     "dev:server": "turbo dev --filter=server",
     "build:web": "turbo build --filter=web",
     "build:server": "turbo build --filter=server",
@@ -17,7 +18,6 @@
     "lint:server": "turbo lint --filter=server",
     "ui:init": "pnpm -C apps/web dlx shadcn@latest init",
     "ui:add": "pnpm -C apps/web dlx shadcn@latest add",
-
     "fw:build": "pio run -d apps/firmware",
     "fw:upload": "pio run -d apps/firmware -t upload",
     "fw:monitor": "pio device monitor -d apps/firmware",

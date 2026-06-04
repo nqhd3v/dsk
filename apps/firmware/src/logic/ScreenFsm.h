@@ -9,7 +9,7 @@
 //
 // Transitions:
 //   ACTIVE  → ALERT    countdown reaches 0
-//   ALERT   → ACTIVE   person returns (dismiss) or auto-dismiss 30s
+//   ALERT   → ACTIVE   person leaves desk (absent) — stays until then
 //   ACTIVE  → ACTIVE   away >10s resets countdown
 //   ACTIVE  → SUMMARY  away >60s
 //   SUMMARY → SLEEP    away >5min

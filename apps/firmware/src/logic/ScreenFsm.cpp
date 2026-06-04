@@ -88,13 +88,9 @@ bool ScreenFsm::update(PresenceState presence, uint32_t now) {
             break;
 
         case ScreenMode::ALERT:
-            // Person returns → dismiss, restart countdown
-            if (_present) {
-                resetCountdown();
-                setMode(ScreenMode::ACTIVE);
-            }
-            // Auto-dismiss after timeout
-            else if ((now - _alertStartMs) >= _cfg.alertAutoDismissMs) {
+            // Stay in ALERT while person still sitting (present). Dismiss only when
+            // they leave the desk (absent) — that's the stand-up we asked for.
+            if (!_present) {
                 resetCountdown();
                 setMode(ScreenMode::ACTIVE);
             }

@@ -63,7 +63,7 @@ pnpm build          # build all apps
 | WebSocket | NestJS → browser live updates                                                                              |
 | BLE       | ESP32 provisioning (push Wi-Fi + MQTT creds) — added late, hardcoded creds in `secrets.h` during bench dev |
 | I2C       | BH1750 (lux), BME680 (T/RH/VOC/pressure)                                                                   |
-| UART      | ACD1200 CO2 @1200 baud, LD2410S radar @115200 baud (3.3V!, minimal frame 6E..62). LD2410C @256000 parked.  |
+| UART      | ACD1200 CO2 @1200 baud. LD2450 radar @256000 baud (5V power/3.3V IO, frame AA FF 03 00..55 CC, 3 targets). LD2410S @115200 (3.3V, 6E..62) + LD2410C @256000 both parked.  |
 | SPI       | ILI9488 TFT display + XPT2046 touch                                                                        |
 
 ## MQTT Topics
@@ -77,7 +77,7 @@ dg/<node>/cmd/config        threshold push from server
 
 ## Presence Model (2-state)
 
-Simple binary: PRESENT (sensor says someone AND smoothed distance ≤ 150 cm) or ABSENT. OT2 digital pin (GPIO 4) = instant presence ground truth when wired. Distance smoothed with 5-sample moving average. LD2410S minimal frame: `6E [state] [dist_lo] [dist_hi] 62` (5 bytes, factory default).
+Simple binary: PRESENT (≥1 target AND smoothed distance ≤ 150 cm) or ABSENT. Distance smoothed with 5-sample moving average. Active sensor **LD2450**: 30-byte frame `AA FF 03 00 | 3×8B targets | 55 CC`, each target X/Y(mm)/speed(cm/s)/distRes(mm), sign-magnitude (bit15=1 → positive), distance = sqrt(x²+y²); no OT2 pin. Parked LD2410S used OT2 digital pin (GPIO 4) + minimal frame `6E [state] [dist_lo] [dist_hi] 62`.
 
 ## Screen FSM Timings
 

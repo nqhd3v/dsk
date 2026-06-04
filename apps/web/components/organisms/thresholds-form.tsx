@@ -147,10 +147,10 @@ export function ThresholdsForm({
               icon={<PersonSimpleWalkIcon size={16} />}
               label="Stand-up reminder"
               value={field.value}
-              min={5}
+              min={0.5}
               max={45}
-              step={5}
-              minLabel="5 min"
+              step={0.5}
+              minLabel="30 sec"
               maxLabel="45 min"
               formatValue={(v) => `${v} min`}
               onChange={field.onChange}

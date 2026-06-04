@@ -67,7 +67,7 @@ export function SensorGrid({ data, thresholds }: SensorGridProps) {
   const vocLabel = vocSt === "good" ? "good" : "poor air";
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       <SensorTile
         icon={<ThermometerIcon size={14} />}
         label="Temperature"
