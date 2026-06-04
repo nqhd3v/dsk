@@ -54,4 +54,7 @@ export class DeviceEntity {
 
   @Column({ type: 'real', nullable: true })
   cfg_lux_max!: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  cfg_presence_range_cm!: number | null;
 }

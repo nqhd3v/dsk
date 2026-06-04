@@ -29,6 +29,7 @@ export default function ThresholdsPage() {
     const vals = formRef.current.getValues();
     await push(device.id, {
       sit_minutes: vals.sitMinutes,
+      presence_range_cm: vals.presenceRangeCm,
       co2_max_ppm: vals.co2Max,
       lux_min: vals.luxMin,
       lux_max: vals.luxMax,
@@ -100,6 +101,7 @@ export default function ThresholdsPage() {
             initial={{
               ...THRESHOLD_DEFAULTS,
               ...(device.cfg_sit_minutes !== null && { sitMinutes: device.cfg_sit_minutes }),
+              ...(device.cfg_presence_range_cm !== null && { presenceRangeCm: device.cfg_presence_range_cm }),
               ...(device.cfg_co2_max_ppm !== null && { co2Max: device.cfg_co2_max_ppm }),
               ...(device.cfg_lux_min !== null && { luxMin: device.cfg_lux_min }),
               ...(device.cfg_lux_max !== null && { luxMax: device.cfg_lux_max }),

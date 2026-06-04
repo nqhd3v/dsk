@@ -21,6 +21,8 @@ export const ConfigCmdSchema = z.object({
   lux_min: z.number().min(0).optional(),
   lux_max: z.number().min(0).optional(),
   sit_minutes: z.number().int().min(1).max(180).optional(),
+  presence_range_cm: z.number().int().min(30).max(600).optional()
+    .describe('Radar presence range: target beyond this (cm) = ABSENT'),
   hydrate_minutes: z.number().int().min(1).max(180).optional(),
   reset_delay_s: z.number().int().min(5).max(300).optional(),
   summary_delay_s: z.number().int().min(10).max(600).optional(),

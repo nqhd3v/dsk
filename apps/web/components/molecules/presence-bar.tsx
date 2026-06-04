@@ -8,6 +8,10 @@ interface PresenceBarProps {
   present: boolean;
   sittingMinutes: number;
   thresholdMinutes: number;
+  /** Live distance to nearest target (cm), null when absent */
+  distanceCm?: number | null;
+  /** Configured presence range (cm) — beyond this = absent */
+  rangeCm?: number;
   className?: string;
 }
 
@@ -15,6 +19,8 @@ export function PresenceBar({
   present,
   sittingMinutes,
   thresholdMinutes,
+  distanceCm,
+  rangeCm,
   className,
 }: PresenceBarProps) {
   const pct = Math.min((sittingMinutes / thresholdMinutes) * 100, 100);
@@ -38,9 +44,20 @@ export function PresenceBar({
         </Badge>
       </div>
 
-      <div className="flex items-end gap-2">
-        <span className="text-3xl font-bold">{sittingMinutes}</span>
-        <span className="text-muted-foreground text-sm mb-1">min sitting</span>
+      <div className="flex items-end justify-between gap-2">
+        <div className="flex items-end gap-2">
+          <span className="text-3xl font-bold">{sittingMinutes}</span>
+          <span className="text-muted-foreground text-sm mb-1">min sitting</span>
+        </div>
+        {/* Live radar distance to nearest target */}
+        <div className="flex flex-col items-end mb-1">
+          <span className="text-lg font-semibold tabular-nums">
+            {present && distanceCm != null ? `${distanceCm} cm` : "—"}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            distance{rangeCm != null ? ` (range ${rangeCm})` : ""}
+          </span>
+        </div>
       </div>
 
       {/* Progress bar */}

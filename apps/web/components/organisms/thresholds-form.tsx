@@ -4,6 +4,7 @@ import * as React from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
   PersonSimpleWalkIcon,
+  RulerIcon,
   CloudIcon,
   ThermometerIcon,
   DropIcon,
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 export interface ThresholdValues {
   // Pushed to device via MQTT cmd/config
   sitMinutes: number;
+  presenceRangeCm: number;
   co2Max: number;
   luxMin: number;
   luxMax: number;
@@ -35,6 +37,7 @@ export interface ThresholdValues {
 
 export const THRESHOLD_DEFAULTS: ThresholdValues = {
   sitMinutes: 45,
+  presenceRangeCm: 150,
   co2Max: 1000,
   luxMin: 200,
   luxMax: 400,
@@ -147,12 +150,32 @@ export function ThresholdsForm({
               icon={<PersonSimpleWalkIcon size={16} />}
               label="Stand-up reminder"
               value={field.value}
-              min={0.5}
+              min={1}
               max={45}
-              step={0.5}
-              minLabel="30 sec"
+              step={1}
+              minLabel="1 min"
               maxLabel="45 min"
               formatValue={(v) => `${v} min`}
+              onChange={field.onChange}
+            />
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="presenceRangeCm"
+          render={({ field }) => (
+            <ThresholdSlider
+              icon={<RulerIcon size={16} />}
+              label="Presence range"
+              value={field.value}
+              min={30}
+              max={400}
+              step={10}
+              minLabel="30 cm"
+              maxLabel="400 cm"
+              hint="Target beyond this = Away"
+              formatValue={(v) => `${v} cm`}
               onChange={field.onChange}
             />
           )}

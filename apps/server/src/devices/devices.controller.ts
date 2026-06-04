@@ -57,6 +57,7 @@ export class DevicesController {
       cfg_co2_max_ppm: payload.co2_max_ppm ?? null,
       cfg_lux_min: payload.lux_min ?? null,
       cfg_lux_max: payload.lux_max ?? null,
+      cfg_presence_range_cm: payload.presence_range_cm ?? null,
     });
 
     return { topic, payload };

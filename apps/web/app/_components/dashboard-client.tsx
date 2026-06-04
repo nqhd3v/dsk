@@ -22,6 +22,7 @@ const THRESHOLD_DEFAULTS = {
   luxMax: 400,
   vocMin: 30000, // Ω
   sitMinutes: 45,
+  presenceRangeCm: 150,
 };
 
 interface DashboardClientProps {
@@ -48,6 +49,8 @@ export function DashboardClient({ nodeId }: DashboardClientProps) {
     luxMin: device?.cfg_lux_min ?? THRESHOLD_DEFAULTS.luxMin,
     luxMax: device?.cfg_lux_max ?? THRESHOLD_DEFAULTS.luxMax,
     sitMinutes: device?.cfg_sit_minutes ?? THRESHOLD_DEFAULTS.sitMinutes,
+    presenceRangeCm:
+      device?.cfg_presence_range_cm ?? THRESHOLD_DEFAULTS.presenceRangeCm,
   };
 
   // Map nullable telemetry fields → sensor data with fallbacks
@@ -95,6 +98,8 @@ export function DashboardClient({ nodeId }: DashboardClientProps) {
               present={present}
               sittingMinutes={sittingMinutes}
               thresholdMinutes={thresholds.sitMinutes}
+              distanceCm={telemetry?.distance_cm}
+              rangeCm={thresholds.presenceRangeCm}
             />
 
             <TelemetryChart nodeId={nodeId} />

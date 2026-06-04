@@ -27,6 +27,7 @@ export const DeviceSchema = z.object({
   cfg_co2_max_ppm: z.number().int().nullable(),
   cfg_lux_min: z.number().nullable(),
   cfg_lux_max: z.number().nullable(),
+  cfg_presence_range_cm: z.number().int().nullable(),
 });
 
 export type Device = z.infer<typeof DeviceSchema>;

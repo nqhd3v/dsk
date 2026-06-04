@@ -89,6 +89,7 @@ export class DevicesService {
       cfg_co2_max_ppm: number | null;
       cfg_lux_min: number | null;
       cfg_lux_max: number | null;
+      cfg_presence_range_cm: number | null;
     },
   ): Promise<void> {
     const update: Partial<DeviceEntity> = {};
@@ -96,6 +97,7 @@ export class DevicesService {
     if (cfg.cfg_co2_max_ppm !== null) update.cfg_co2_max_ppm = cfg.cfg_co2_max_ppm;
     if (cfg.cfg_lux_min !== null) update.cfg_lux_min = cfg.cfg_lux_min;
     if (cfg.cfg_lux_max !== null) update.cfg_lux_max = cfg.cfg_lux_max;
+    if (cfg.cfg_presence_range_cm !== null) update.cfg_presence_range_cm = cfg.cfg_presence_range_cm;
     if (Object.keys(update).length > 0) {
       await this.repo.update(id, update);
     }

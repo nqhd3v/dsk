@@ -87,6 +87,31 @@ static constexpr const char *NVS_SIT_MIN   = "sit_min";
 static constexpr const char *NVS_RST_S     = "rst_s";
 static constexpr const char *NVS_SUM_S     = "sum_s";
 static constexpr const char *NVS_SLP_S     = "slp_s";
+static constexpr const char *NVS_RANGE_CM  = "rng_cm";
+
+// Radar presence range (cm) — target beyond this = ABSENT. Editable via web.
+static constexpr uint16_t DEFAULT_RANGE_CM = 150;
+static uint16_t presenceRangeCm = DEFAULT_RANGE_CM;
+
+/** Load presence range (cm) from NVS, falls back to default. */
+static uint16_t loadPresenceRange() {
+    prefs.begin(NVS_NS, /*readOnly=*/true);
+    uint32_t v = prefs.getUInt(NVS_RANGE_CM, 0);
+    prefs.end();
+    return (v >= 30 && v <= 600) ? (uint16_t)v : DEFAULT_RANGE_CM;
+}
+
+/** Persist presence range (cm) + apply to radar driver. */
+static void applyPresenceRange(uint16_t cm) {
+    presenceRangeCm = cm;
+    Ld2450Config rc;
+    rc.maxRangeCm = cm;
+    radarSensor.configure(rc);
+    prefs.begin(NVS_NS, /*readOnly=*/false);
+    prefs.putUInt(NVS_RANGE_CM, cm);
+    prefs.end();
+    Serial.printf("[CFG] Presence range = %ucm (saved)\n", cm);
+}
 
 /** Load thresholds from NVS; falls back to ScreenFsmConfig defaults. */
 static ScreenFsmConfig loadConfig() {
@@ -434,6 +459,12 @@ static void onMqttCmd(const char *topic, const uint8_t *payload, unsigned int le
             if (s >= 10 && s <= 3600) cfg.sleepDelayMs = s * 1000UL;
         }
 
+        // Radar presence range (cm) — applies to LD2450 driver live + NVS
+        if (doc.containsKey("presence_range_cm") && doc["presence_range_cm"].is<uint32_t>()) {
+            uint32_t cm = doc["presence_range_cm"].as<uint32_t>();
+            if (cm >= 30 && cm <= 600) applyPresenceRange((uint16_t)cm);
+        }
+
         // Apply live + persist
         fsm.begin(cfg);
         saveConfig(cfg);
@@ -482,6 +513,14 @@ void setup() {
     envSensor.begin();
     radarSensor.begin(Serial2, 16, 15);   // LD2450: no OT2 pin
     (void)PIN_RADAR_OT2;
+    // Apply persisted presence range (cm) from NVS
+    presenceRangeCm = loadPresenceRange();
+    {
+        Ld2450Config rc;
+        rc.maxRangeCm = presenceRangeCm;
+        radarSensor.configure(rc);
+    }
+    Serial.printf("[CFG] Presence range = %ucm\n", presenceRangeCm);
     co2Sensor.begin(Serial1);
 
     delay(200);
