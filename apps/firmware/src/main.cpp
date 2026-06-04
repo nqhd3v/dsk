@@ -382,6 +382,11 @@ static void publishTelemetry() {
         doc["distance_cm"] = sensors.radar.distance_cm;
     else
         doc["distance_cm"] = nullptr;
+    // Raw nearest-target distance — ALWAYS sent when any target seen (ignores range gate)
+    if (sensors.radar.ok && sensors.radar.raw_distance_cm > 0)
+        doc["radar_nearest_cm"] = sensors.radar.raw_distance_cm;
+    else
+        doc["radar_nearest_cm"] = nullptr;
     doc["sit_seconds"] = (int)fsm.sittingSec();
 
     // Serialize + publish

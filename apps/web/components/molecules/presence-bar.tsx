@@ -51,8 +51,13 @@ export function PresenceBar({
         </div>
         {/* Live radar distance to nearest target */}
         <div className="flex flex-col items-end mb-1">
-          <span className="text-lg font-semibold tabular-nums">
-            {present && distanceCm != null ? `${distanceCm} cm` : "—"}
+          <span
+            className={cn(
+              "text-lg font-semibold tabular-nums",
+              !present && "text-muted-foreground",
+            )}
+          >
+            {distanceCm != null ? `${distanceCm} cm` : "—"}
           </span>
           <span className="text-[10px] text-muted-foreground">
             distance{rangeCm != null ? ` (range ${rangeCm})` : ""}

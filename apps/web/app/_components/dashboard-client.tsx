@@ -98,7 +98,7 @@ export function DashboardClient({ nodeId }: DashboardClientProps) {
               present={present}
               sittingMinutes={sittingMinutes}
               thresholdMinutes={thresholds.sitMinutes}
-              distanceCm={telemetry?.distance_cm}
+              distanceCm={telemetry?.radar_nearest_cm ?? telemetry?.distance_cm}
               rangeCm={thresholds.presenceRangeCm}
             />
 

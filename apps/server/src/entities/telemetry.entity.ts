@@ -39,6 +39,10 @@ export class TelemetryEntity {
   @Column({ type: 'int', nullable: true })
   distance_cm!: number | null;
 
+  // Raw nearest-target distance — always recorded, ignores presence range
+  @Column({ type: 'int', nullable: true })
+  radar_nearest_cm!: number | null;
+
   @Column({ type: 'int', default: 0 })
   sit_seconds!: number;
 

@@ -47,6 +47,7 @@ export class TelemetryService {
       co2_preheating: data.co2_preheating,
       presence: data.presence,
       distance_cm: data.distance_cm,
+      radar_nearest_cm: data.radar_nearest_cm ?? null,
       sit_seconds: data.sit_seconds,
       hcho_ppb: data.hcho_ppb ?? null,
       fw_version: data.fw_version,

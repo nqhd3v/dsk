@@ -25,9 +25,11 @@ export const EnvTelemetrySchema = z.object({
   co2_ppm: z.number().int().min(0).nullable().describe('CO2 concentration (ppm), null if preheating or error'),
   co2_preheating: z.boolean().describe('True if ACD1200 still in 120s preheat'),
 
-  // LD2410S — presence
-  presence: PresenceStateSchema.describe('2-state: PRESENT or ABSENT'),
-  distance_cm: z.number().int().min(0).nullable().describe('Smoothed radar distance (cm), null if absent'),
+  // LD2450 — presence
+  presence: PresenceStateSchema.describe('2-state: PRESENT or ABSENT (gated by presence range)'),
+  distance_cm: z.number().int().min(0).nullable().describe('Smoothed radar distance (cm), null if absent (range-gated)'),
+  radar_nearest_cm: z.number().int().min(0).nullable().optional()
+    .describe('Raw nearest-target distance (cm), sent whenever any target seen — ignores presence range'),
   sit_seconds: z.number().int().min(0).describe('Continuous sitting time (seconds)'),
 
   // HCHO — future
