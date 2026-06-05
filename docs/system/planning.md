@@ -41,8 +41,8 @@ If the agent has memory access, it will also find these notes:
 | Last completed phase | **Module 2 (schemas) + Module 3 (ESP WiFi+MQTT) + Module 4 (infra) + Module 5 (NestJS backend)** |
 | Current phase | **Module 6 — Next.js dashboard** |
 | Next step | Build live dashboard (W.0→W.1) |
-| Hardware on bench | ESP32-S3 MKE-K01, ILI9488 TFT, BH1750, BME680, LD2410S (3.3V, UART2 + OT2), ACD1200 (via BSS138), buzzer |
-| All wired? | All sensors wired. OT2 (GPIO 4) optional but recommended for faster presence. |
+| Hardware on bench | ESP32-S3 MKE-K01, ILI9488 TFT, BH1750, BME680, **LD2450 (5V power/3.3V IO, UART2 @256000)**, ACD1200 (via BSS138), buzzer |
+| All wired? | All sensors wired. LD2450 replaced LD2410S — no OT2 pin (presence from nearest-target distance). |
 | ESP standalone working? | Yes. All sensors reading on TFT. 4-state FSM transitions working. Countdown smooth. |
 | ESP WiFi+MQTT working? | Yes. Non-blocking WiFi, NTP sync, MQTT telemetry every 10s, hello beacon retained. |
 | RPi gateway infra | Docker stack running: Mosquitto + Postgres/TimescaleDB + Caddy. Wi-Fi AP (hostapd+dnsmasq on wlan1) configured. |

@@ -41,8 +41,11 @@ struct Ld2450Target {
 };
 
 struct Ld2450Config {
-    uint16_t maxRangeCm   = 150;  // beyond this = ABSENT (desk presence range)
-    uint8_t  smoothWindow = 5;    // moving average window for nearest distance
+    uint16_t maxRangeCm   = 150;    // beyond this = ABSENT (desk presence range)
+    uint8_t  smoothWindow = 5;      // moving average window for nearest distance
+    uint32_t holdMs       = 30000;  // keep PRESENT this long after last in-range
+                                    // detection — LD2450 drops dead-still targets,
+                                    // so linger to avoid false "Away" while sitting
 };
 
 class Ld2450Sensor {
@@ -93,6 +96,10 @@ private:
     Ld2450Target _targets[3];
     uint8_t      _targetCount = 0;
     uint16_t     _nearestCm = 0;
+
+    // Presence hold (linger) — last time a target was seen in range
+    uint32_t _lastInRangeMs = 0;
+    bool     _everInRange = false;
 
     // Diagnostics
     uint32_t _frameCount = 0;

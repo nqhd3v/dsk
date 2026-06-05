@@ -176,12 +176,27 @@ RadarReading Ld2450Sensor::read() {
     r.raw_state       = _targetCount;  // # of tracked targets (debug)
     r.ot2             = false;          // no OT2 pin on LD2450
 
-    // Presence = ≥1 target within desk range.
-    if (_targetCount > 0 && _smoothDist > 0 && _smoothDist <= _cfg.maxRangeCm) {
+    uint32_t now = r.at_ms;
+    bool seen    = (_targetCount > 0 && _smoothDist > 0);          // any target tracked
+    bool inRange = seen && _smoothDist <= _cfg.maxRangeCm;          // within desk zone
+
+    if (inRange) {
+        // Target in zone → PRESENT.
+        _lastInRangeMs = now;
+        _everInRange = true;
+        r.state = PresenceState::PRESENT;
+    } else if (seen) {
+        // Target VISIBLE but out of range → real move-away. ABSENT now, NO hold.
+        r.state = PresenceState::ABSENT;
+        _distBufCount = 0;
+        _distBufIdx = 0;
+    } else if (_everInRange && (now - _lastInRangeMs) < _cfg.holdMs) {
+        // Target LOST (no detection) → likely sitting dead-still (LD2450 drops
+        // motionless targets). Hold PRESENT for the linger window.
         r.state = PresenceState::PRESENT;
     } else {
+        // No target + hold expired → ABSENT.
         r.state = PresenceState::ABSENT;
-        // Clear smoothing buffer on absence.
         _distBufCount = 0;
         _distBufIdx = 0;
     }

@@ -44,7 +44,7 @@ Two-module IoT system. ESP32-S3 edge node senses environment + presence and runs
 
 - Runs **hostapd + dnsmasq** as Wi-Fi AP `DG-<mac>` → ESP nodes join this isolated network.
 - Optionally also joins home Wi-Fi for internet (dual-interface).
-- Docker stack: **Mosquitto** (MQTT broker), **PostgreSQL + TimescaleDB** (single store for both device registry and time-series telemetry), **NestJS** (REST + WebSocket + MQTT subscriber), **Caddy** (reverse proxy + web).
+- Docker stack: **Mosquitto** (MQTT broker), **PostgreSQL + TimescaleDB** (single store for both device registry and time-series telemetry), **NestJS** (REST + WebSocket + MQTT subscriber + serves Next.js).
 - NestJS subscribes to Mosquitto, writes telemetry rows into a Timescale hypertable, and pushes live updates to the Next.js dashboard via WebSocket (<2 s).
 - Grafana optional — can point at the same Postgres for ad-hoc charts.
 
@@ -112,7 +112,7 @@ _Auth model:_ each ESP gets own MQTT creds (`node1`, `node2`, …) so per-device
                 │       │      └────────┬────────┘             │
                 │       │               │                       │
                 │       │          ┌────▼────┐                  │
-                │       │          │  Caddy  │ → Next.js Web    │
+                │       │          │ Next.js │ ← served by NestJS│
                 │       │          └─────────┘                  │
                 │       │                                       │
                 │  (opt) wlan1 ──→ Home Wi-Fi → Internet        │
@@ -250,7 +250,6 @@ Stored in NVS, editable via touch UI (later) or web dashboard (after RPi added).
 | Database | PostgreSQL + TimescaleDB extension (single DB for registry + telemetry) |
 | Backend | NestJS (TypeScript) with `@nestjs/microservices` MQTT transport |
 | Web | Next.js 16.2.6 + React 19 |
-| Reverse proxy | Caddy |
 | Analytics (opt) | Grafana on top of Postgres |
 
 See `docs/system/planning.md` for build order and status.

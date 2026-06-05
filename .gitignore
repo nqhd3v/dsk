@@ -26,14 +26,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Python (server)
-__pycache__/
-*.py[cod]
-*.pyo
-.venv/
-venv/
-*.egg-info/
-
 # PlatformIO (firmware)
 .pio/
 .pioenvs/
@@ -43,5 +35,21 @@ venv/
 npm-debug.log*
 pnpm-debug.log*
 
-# InfluxDB / local data
+# Local data (Postgres/Timescale docker volumes, etc.)
 data/
+
+# AI assistant tooling (CLAUDE.md is intentionally tracked)
+.claude/
+CLAUDE.local.md
+.cursor/
+.cursorrules
+.cursorignore
+.aider*
+.windsurf/
+.windsurfrules
+.continue/
+.codeium/
+.roo/
+.gemini/
+.specstory/
+.github/copilot-instructions.md

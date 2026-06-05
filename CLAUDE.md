@@ -77,7 +77,7 @@ dg/<node>/cmd/config        threshold push from server
 
 ## Presence Model (2-state)
 
-Simple binary: PRESENT (≥1 target AND smoothed distance ≤ 150 cm) or ABSENT. Distance smoothed with 5-sample moving average. Active sensor **LD2450**: 30-byte frame `AA FF 03 00 | 3×8B targets | 55 CC`, each target X/Y(mm)/speed(cm/s)/distRes(mm), sign-magnitude (bit15=1 → positive), distance = sqrt(x²+y²); no OT2 pin. Parked LD2410S used OT2 digital pin (GPIO 4) + minimal frame `6E [state] [dist_lo] [dist_hi] 62`.
+Simple binary: PRESENT (≥1 target AND smoothed distance ≤ 150 cm) or ABSENT. Distance smoothed with 5-sample moving average. Active sensor **LD2450**: 30-byte frame `AA FF 03 00 | 3×8B targets | 55 CC`, each target X/Y(mm)/speed(cm/s)/distRes(mm), sign-magnitude (bit15=1 → positive), distance = sqrt(x²+y²); no OT2 pin. **LD2450 is a MOVING-target tracker — it drops dead-still targets**, so the driver holds PRESENT for `holdMs` (default 30 s) after the last in-range detection to avoid false "Away" while sitting. Parked LD2410S used OT2 digital pin (GPIO 4) + minimal frame `6E [state] [dist_lo] [dist_hi] 62` and had native stationary detection.
 
 ## Screen FSM Timings
 

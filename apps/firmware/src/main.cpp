@@ -49,7 +49,8 @@ static constexpr uint8_t PIN_RADAR_OT2 = 4;   // LD2410S OT2 (unused with LD2450
 
 // ----- Timing -----
 static constexpr uint32_t RENDER_INTERVAL_MS  = 20;     // ~50 Hz
-static constexpr uint32_t SENSOR_INTERVAL_MS  = 2000;   // read sensors every 2 s
+static constexpr uint32_t SENSOR_INTERVAL_MS  = 2000;   // read env sensors every 2 s
+static constexpr uint32_t RADAR_INTERVAL_MS   = 250;    // read radar presence every 250 ms (fast)
 static constexpr uint32_t HEARTBEAT_MS        = 10000;
 static constexpr uint32_t TELEMETRY_INTERVAL_MS = 10000; // MQTT publish every 10 s
 
@@ -228,7 +229,8 @@ static void setBacklight(bool on) {
 static void readSensors() {
     sensors.lux   = luxSensor.read();
     sensors.env   = envSensor.read();
-    sensors.radar = radarSensor.read();
+    // NOTE: sensors.radar refreshed on the fast radar tick (RADAR_INTERVAL_MS),
+    // not here — presence must react in ~250ms, not every 2s.
     sensors.co2   = co2Sensor.read();
 
     // Serial debug
@@ -530,6 +532,7 @@ void setup() {
 
     delay(200);
     readSensors();
+    sensors.radar = radarSensor.read();   // initial presence for first paint
 
     // FSM — load thresholds from NVS (falls back to defaults on first boot)
     ScreenFsmConfig cfg = loadConfig();
@@ -577,7 +580,14 @@ void loop() {
     // Poll radar (needs frequent calls)
     radarSensor.poll();
 
-    // Read sensors
+    // Fast radar presence read — FSM must react quickly (not every 2s)
+    static uint32_t lastRadar = 0;
+    if (now - lastRadar >= RADAR_INTERVAL_MS) {
+        lastRadar = now;
+        sensors.radar = radarSensor.read();
+    }
+
+    // Read env sensors (slow)
     if (now - lastSensor >= SENSOR_INTERVAL_MS) {
         lastSensor = now;
         readSensors();
